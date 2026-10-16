@@ -1562,6 +1562,7 @@ const sheetmanage = {
                         formula.addToCellList(formulaTxt, str);
                         if (str.indexOf("!") > -1) {
                             let name = str.substr(0, str.indexOf("!"));
+                            name = name.replace(/\\/g, "").replace(/'/g, "");
                             // dataNameList[name] = true;
 
                             let sheet = this.getSheetByName(name);
