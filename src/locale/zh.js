@@ -7331,7 +7331,7 @@ export default {
         refresh: "WebSocket连接发生错误, 请刷新页面！",
         wait: "WebSocket连接发生错误, 请耐心等待！",
         close: "WebSocket连接关闭",
-        contact: "服务器通信发生错误，请刷新页面后再试，如若不行请联系管理员！",
+        contact: "服務器通信發生錯誤，請刷新頁面後再試，如若不行請聯系管理員！",
         support: "当前浏览器不支持WebSocket",
     },
     exportXlsx: {
