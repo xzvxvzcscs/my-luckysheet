@@ -1488,7 +1488,7 @@ let cellRender = function(
     if (
         dataVerification != null &&
         dataVerification[r + "_" + c] != null &&
-        !dataVerificationCtrl.validateCellData(value, dataVerification[r + "_" + c])
+        !dataVerificationCtrl.validateCellData(value, dataVerification[r + "_" + c], Store.flowdata[r][c], r, c)
     ) {
         //单元格左上角红色小三角标示
         let dv_w = 5 * Store.zoomRatio,

@@ -11124,6 +11124,12 @@ const functionImplementation = {
                 return formula.error.na;
             }
 
+            // 下拉来源的精确匹配保留完整显示值和空白行位置，索引取值继续使用原生逻辑。
+            if (match_type === 0 && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                const matchedIndex = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], data_lookup_array, Store.luckysheetfile, data_lookup_array.rowl == 1 ? 'row' : 'column');
+                if (matchedIndex !== undefined) return matchedIndex < 0 ? formula.error.na : matchedIndex + 1;
+            }
+
             //计算
             var index;
             var indexValue;
@@ -11316,6 +11322,11 @@ const functionImplementation = {
                 }
             }
             else{
+                // 仅对业务钩子识别的下拉来源使用显示值匹配，普通精确查找沿用原生规则。
+                if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                    const matchedRow = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], data_table_array, Store.luckysheetfile);
+                    if (matchedRow !== undefined) return matchedRow < 0 ? formula.error.na : table_array[matchedRow][col_index_num - 1];
+                }
                 var index = null;
 
                 for(var r = 0; r < table_array.length; r++){
@@ -11355,6 +11366,18 @@ const functionImplementation = {
         }
 
         try {
+            // 横向下拉关联也按完整显示值精确匹配，其他参数及近似查找仍走原生路径。
+            if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                var lookupMode = arguments.length === 3 ? false : func_methods.getCellBoolen(arguments[3]);
+                if (lookupMode === false) {
+                    var lookupRange = arguments[1];
+                    var lookupRow = Number(func_methods.getFirstValue(arguments[2]));
+                    if (lookupRange && lookupRange.startCell && Number.isInteger(lookupRow) && lookupRow > 0 && lookupRow <= Number(lookupRange.rowl)) {
+                        const matchedIndex = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], lookupRange, Store.luckysheetfile, 'row');
+                        if (matchedIndex !== undefined) return matchedIndex < 0 ? formula.error.na : getcellvalue(lookupRow - 1, matchedIndex, lookupRange.data);
+                    }
+                }
+            }
             var cell_r = window.luckysheetCurrentRow;
             var cell_c = window.luckysheetCurrentColumn;
             var searchkey = arguments[0];

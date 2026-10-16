@@ -15,6 +15,7 @@ import sheetmanage from './sheetmanage';
 import { getSheetIndex, getRangetxt } from '../methods/get';
 import locale from '../locale/locale';
 import Store from '../store';
+import luckysheetConfigsetting from './luckysheetConfigsetting';
 
 const dataVerificationCtrl = {
     defaultItem: {
@@ -276,8 +277,18 @@ const dataVerificationCtrl = {
             let rowIndex = last.row_focus;
             let colIndex = last.column_focus;
 
+            if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownCell === 'function') {
+                const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+                const target = luckysheetConfigsetting.hook.dropdownCell({
+                    data: Store.flowdata,
+                    config: sheet.config,
+                    dataVerification: sheet.dataVerification
+                }, rowIndex, colIndex);
+                rowIndex = target.r;
+                colIndex = target.c;
+            }
             $("#luckysheet-rich-text-editor").text(value);
-            formula.updatecell(rowIndex, colIndex);
+            formula.updatecell(rowIndex, colIndex, undefined, true, value);
 
             e.stopPropagation();
         });
@@ -1107,7 +1118,7 @@ const dataVerificationCtrl = {
             return;
         }
 
-        let validate = _this.validateCellData(cellValue, item);
+        let validate = _this.validateCellData(cellValue, item, Store.flowdata[r][c], r, c);
 
         if(!validate){
             let failureText;
@@ -1297,7 +1308,18 @@ const dataVerificationCtrl = {
 
         return failureText;
     },
-    validateCellData: function(cellValue, item){
+    validateCellData: function(cellValue, item, cell, row, column){
+        // 合并区域的提示与绘制统一读取主格及其生效规则，不使用子格残留值。
+        if (item.type === 'dropdown' && row !== undefined && column !== undefined && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownCell === 'function') {
+            const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+            const target = luckysheetConfigsetting.hook.dropdownCell({
+                data: Store.flowdata,
+                config: sheet.config,
+                dataVerification: sheet.dataVerification
+            }, row, column);
+            cell = target.cell;
+            item = target.verification || item;
+        }
         let _this = this;
 
         let type = item.type,
@@ -1306,7 +1328,13 @@ const dataVerificationCtrl = {
             value2 = item.value2;
 
         if(type == 'dropdown'){
-            let list = _this.getDropdownList(value1);
+            let list = luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownOptions === 'function'
+                ? luckysheetConfigsetting.hook.dropdownOptions(value1, Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)], Store.luckysheetfile)
+                : _this.getDropdownList(value1);
+            // 来源尚未加载时不标记值失效，保存入口仍按来源不可用阻止提交。
+            if (list === null) return true;
+            // 业务匹配钩子统一处理显示值，未配置钩子的工作簿继续使用原生规则。
+            if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === 'function') return luckysheetConfigsetting.hook.dropdownValueMatch(cell === undefined ? cellValue : cell, list, type2);
 
             // 多选的情况 检查每个都在下拉列表中
             if(type2 && cellValue){
@@ -1506,6 +1534,18 @@ const dataVerificationCtrl = {
         }
 
         let item = _this.dataVerification[rowIndex + '_' + colIndex];
+        let selectedCell = Store.flowdata[rowIndex][colIndex];
+        if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownCell === 'function') {
+            const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+            const target = luckysheetConfigsetting.hook.dropdownCell({
+                data: Store.flowdata,
+                config: sheet.config,
+                dataVerification: sheet.dataVerification
+            }, rowIndex, colIndex);
+            item = target.verification || item;
+            selectedCell = target.cell;
+        }
+        if (!item || item.type !== 'dropdown') return;
         let list = _this.getDropdownList(item.value1);
 
         // 纯文本节点保留选项中的尖括号和实体文本，避免被当作 HTML 解析。
@@ -1513,7 +1553,9 @@ const dataVerificationCtrl = {
         if (item.type === 'dropdown' && item.type2) {
             // 下拉多选的情况下 将已经选择的标出来
             let cellValue = getcellvalue(rowIndex, colIndex, null);
-            let valueArr = isRealNull(cellValue) ? [] : cellValue.split(',');
+            let valueArr = luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownSelectedOptions === 'function'
+                ? luckysheetConfigsetting.hook.dropdownSelectedOptions(selectedCell, list) || []
+                : isRealNull(cellValue) ? [] : cellValue.split(',');
             list.forEach(i => {
                 optionNodes.appendChild($('<div>').addClass(`dropdown-List-item luckysheet-mousedown-cancel multi${valueArr.indexOf(i) !== -1 ? ' checked': ''}`).text(i)[0]);
             });
@@ -1543,6 +1585,8 @@ const dataVerificationCtrl = {
         }
     },
     getDropdownList: function(txt){
+        // 原生面板和保存校验共用来源解析，支持整行、整列、绝对地址和稀疏数据。
+        if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownOptions === 'function') return luckysheetConfigsetting.hook.dropdownOptions(txt, Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)], Store.luckysheetfile) || [];
         // 历史结构化列表保留选项内的逗号和空格，不再作为内联列表拆分。
         if (typeof txt === 'string' && txt.startsWith('__UPRR_DROPDOWN_OPTIONS__:')) {
             try {
@@ -1566,11 +1610,14 @@ const dataVerificationCtrl = {
 
                     let cell = d[r][c];
 
-                    if(cell == null || cell.v == null){
+                    let displayValue = luckysheetConfigsetting.hook && luckysheetConfigsetting.hook.dropdownDisplayValue;
+                    // 候选项与目标单元格使用同一显示值入口，兼容格式化文本及富文本。
+                    if(cell == null || cell.v == null && typeof displayValue !== 'function'){
                         continue;
                     }
 
-                    let v = cell.m || cell.v;
+                    let v = typeof displayValue === 'function' ? displayValue(cell) : cell.m || cell.v;
+                    if (v == null) continue;
 
                     if(!list.includes(v)){
                         list.push(v);

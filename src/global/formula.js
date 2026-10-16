@@ -36,6 +36,7 @@ import {
     luckysheet_getSpecialReference,
 } from "../function/func";
 import Store from "../store";
+import luckysheetConfigsetting from "../controllers/luckysheetConfigsetting";
 import locale from "../locale/locale";
 import json from "./json";
 import method from "./method";
@@ -1304,7 +1305,7 @@ const luckysheetformula = {
                 opacity: "0.13",
             });
     },
-    updatecell: function(r, c, value, isRefresh = true) {
+    updatecell: function(r, c, value, isRefresh = true, dropdownText) {
         let _this = this;
 
         let $input = $("#luckysheet-rich-text-editor");
@@ -1315,15 +1316,29 @@ const luckysheetformula = {
             sheetmanage.changeSheetExec(_this.rangetosheet);
         }
 
+        let editRule = dataVerificationCtrl.dataVerification && dataVerificationCtrl.dataVerification[r + "_" + c];
+        if (editRule && editRule.type === "dropdown" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownCell === "function") {
+            const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+            const target = luckysheetConfigsetting.hook.dropdownCell({
+                data: Store.flowdata,
+                config: sheet.config,
+                dataVerification: sheet.dataVerification
+            }, r, c);
+            r = target.r;
+            c = target.c;
+            editRule = target.verification;
+        }
         if (!checkProtectionLocked(r, c, Store.currentSheetIndex)) {
             return;
         }
 
+        let dropdownRule = editRule;
+        dropdownRule = dropdownRule && dropdownRule.type === "dropdown" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === "function" ? dropdownRule : null;
         //数据验证 输入数据无效时禁止输入
         if (dataVerificationCtrl.dataVerification != null) {
             let dvItem = dataVerificationCtrl.dataVerification[r + "_" + c];
 
-            if (dvItem != null && dvItem.prohibitInput && !dataVerificationCtrl.validateCellData(inputText, dvItem)) {
+            if (dvItem != null && dvItem.prohibitInput && !dropdownRule && !dataVerificationCtrl.validateCellData(inputText, dvItem)) {
                 let failureText = dataVerificationCtrl.getFailureText(dvItem);
                 tooltip.info(failureText, "");
                 _this.cancelNormalSelected();
@@ -1336,6 +1351,8 @@ const luckysheetformula = {
         // Store old value for hook function
         const oldValue = JSON.stringify(curv);
 
+        // 下拉输入先在副本中格式化和计算，未匹配时保留原值、公式链及同步状态。
+        if (dropdownRule && getObjType(curv) === "object") curv = $.extend(true, {}, curv);
         let isPrevInline = isInlineStringCell(curv);
         let isCurInline = inputText.slice(0, 1) != "=" && inputHtml.substr(0, 5) == "<span";
 
@@ -1387,7 +1404,7 @@ const luckysheetformula = {
         value = value || $input.text();
 
         // Hook function
-        if (!method.createHookFunction("cellUpdateBefore", r, c, value, isRefresh)) {
+        if (!method.createHookFunction("cellUpdateBefore", r, c, value, isRefresh, !!dropdownRule)) {
             _this.cancelNormalSelected();
             return;
         }
@@ -1398,7 +1415,7 @@ const luckysheetformula = {
                     _this.cancelNormalSelected();
                     return;
                 }
-            } else if (curv != null && curv.qp != 1) {
+            } else if (curv != null && curv.qp != 1 && !dropdownRule) {
                 if (getObjType(curv) == "object" && (value == curv.f || value == curv.v || value == curv.m)) {
                     _this.cancelNormalSelected();
                     return;
@@ -1432,10 +1449,11 @@ const luckysheetformula = {
         let d = editor.deepCopyFlowData(Store.flowdata);
         let dynamicArrayItem = null; //动态数组
 
+        if (dropdownRule && getObjType(curv) === "object") d[r][c] = $.extend(true, {}, curv);
         if (getObjType(curv) == "object") {
             if (!isCurInline) {
                 if (getObjType(value) == "string" && value.slice(0, 1) == "=" && value.length > 1) {
-                    let v = _this.execfunction(value, r, c, undefined, true);
+                    let v = _this.execfunction(value, r, c, undefined, !dropdownRule, !!dropdownRule);
                     isRunExecFunction = false;
                     curv = $.extend(true, {}, d[r][c]);
                     curv.v = v[1];
@@ -1466,7 +1484,7 @@ const luckysheetformula = {
                         valueFunction.slice(0, 1) == "=" &&
                         valueFunction.length > 1
                     ) {
-                        let v = _this.execfunction(valueFunction, r, c, undefined, true);
+                        let v = _this.execfunction(valueFunction, r, c, undefined, !dropdownRule, !!dropdownRule);
                         isRunExecFunction = false;
                         // get v/m/ct
 
@@ -1529,8 +1547,10 @@ const luckysheetformula = {
                         // }
                     }
                 } else {
-                    _this.delFunctionGroup(r, c);
-                    _this.execFunctionGroup(r, c, value);
+                    if (!dropdownRule) {
+                        _this.delFunctionGroup(r, c);
+                        _this.execFunctionGroup(r, c, value);
+                    }
                     isRunExecFunction = false;
 
                     curv = $.extend(true, {}, d[r][c]);
@@ -1556,7 +1576,7 @@ const luckysheetformula = {
             value = curv;
         } else {
             if (getObjType(value) == "string" && value.slice(0, 1) == "=" && value.length > 1) {
-                let v = _this.execfunction(value, r, c, undefined, true);
+                let v = _this.execfunction(value, r, c, undefined, !dropdownRule, !!dropdownRule);
                 isRunExecFunction = false;
                 value = {
                     v: v[1],
@@ -1585,7 +1605,7 @@ const luckysheetformula = {
                     valueFunction.slice(0, 1) == "=" &&
                     valueFunction.length > 1
                 ) {
-                    let v = _this.execfunction(valueFunction, r, c, undefined, true);
+                    let v = _this.execfunction(valueFunction, r, c, undefined, !dropdownRule, !!dropdownRule);
                     isRunExecFunction = false;
                     // value = {
                     //     "v": v[1],
@@ -1615,14 +1635,43 @@ const luckysheetformula = {
                     }
                 }
             } else {
-                _this.delFunctionGroup(r, c);
-                _this.execFunctionGroup(r, c, value);
+                if (!dropdownRule) {
+                    _this.delFunctionGroup(r, c);
+                    _this.execFunctionGroup(r, c, value);
+                }
                 isRunExecFunction = false;
             }
         }
 
         // value maybe an object
         setcellvalue(r, c, d, value);
+        // 已选候选项必须保持完整显示文本，避免目标数值格式改写名称或前导零。
+        if (dropdownText !== undefined && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === "function" && !luckysheetConfigsetting.hook.dropdownValueMatch(d[r][c], [dropdownText], false)) {
+            const selectedCell = d[r][c];
+            delete selectedCell.f;
+            delete selectedCell.m;
+            delete selectedCell.spl;
+            selectedCell.ct = { fa: "@", t: "s" };
+            selectedCell.qp = 1;
+            setcellvalue(r, c, d, dropdownText);
+        }
+        if (dropdownRule) {
+            if ((dropdownRule.prohibitInput || dropdownText !== undefined) && !dataVerificationCtrl.validateCellData(undefined, dropdownRule, d[r][c])) {
+                tooltip.info(dataVerificationCtrl.getFailureText(dropdownRule), "");
+                _this.cancelNormalSelected();
+                return;
+            }
+            method.createHookFunction("cellUpdateAccepted", r, c, value, isRefresh, d[r][c]);
+            const pendingCell = d[r][c];
+            // 关联查找使用本轮格式化单元格，不能把显示值重新还原成无格式的原始数值。
+            if (pendingCell && pendingCell.f != null) {
+                _this.execFunctionGroup(r, c, pendingCell);
+                _this.insertUpdateFunctionGroup(r, c);
+            } else {
+                _this.delFunctionGroup(r, c);
+                _this.execFunctionGroup(r, c, pendingCell);
+            }
+        }
         _this.cancelNormalSelected();
 
         let RowlChange = false;
