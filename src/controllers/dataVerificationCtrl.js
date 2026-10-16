@@ -1319,7 +1319,11 @@ const dataVerificationCtrl = {
             }, row, column);
             cell = target.cell;
             item = target.verification || item;
+            row = target.r;
+            column = target.c;
         }
+        // 点击提示与失效标记只检查可查看的下拉单元格，不修改规则、值或编辑权限。
+        if (item.type === 'dropdown' && row !== undefined && column !== undefined && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.skipDropdownValidation === 'function' && luckysheetConfigsetting.hook.skipDropdownValidation(Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)], row, column)) return true;
         let _this = this;
 
         let type = item.type,
