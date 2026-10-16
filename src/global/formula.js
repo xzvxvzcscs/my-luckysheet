@@ -1409,6 +1409,8 @@ const luckysheetformula = {
             return;
         }
 
+        // 未改动的公式仍允许重算缓存，但退出编辑时不应重新调整行高。
+        const sameFormula = getObjType(value) == "string" && getObjType(curv) == "object" && value === curv.f;
         if (!isCurInline) {
             if (isRealNull(value) && !isPrevInline) {
                 if (curv == null || (isRealNull(curv.v) && curv.spl == null && curv.f == null)) {
@@ -1682,8 +1684,8 @@ const luckysheetformula = {
 
         // 单元格行高自适应,只有在单元格不是合并单元格时才能生效
         if (
-            (d[r][c].tb == "2" && d[r][c].v != null) ||
-            (isInlineStringCell(d[r][c]) && typeof d[r][c]["mc"] == "undefined")
+            !sameFormula && ((d[r][c].tb == "2" && d[r][c].v != null) ||
+            (isInlineStringCell(d[r][c]) && typeof d[r][c]["mc"] == "undefined"))
         ) {
             //自动换行
             let defaultrowlen = Store.defaultrowlen;
