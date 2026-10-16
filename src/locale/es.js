@@ -776,7 +776,7 @@ export default {
                 },
                 {
                     "name": "cumulative",
-                    "detail": "Determine the logical value of the function form. \n\nIf cumulative is TRUE(), HYPGEOM.DIST returns the cumulative distribution function;\n\nif FALSE(), it returns the probability density function."
+                    "detail": "Determine the logical value of the function form.\n\nIf cumulative is TRUE(), HYPGEOM.DIST returns the cumulative distribution function;\n\nif FALSE(), it returns the probability density function."
                 }
             ]
         },
