@@ -6,7 +6,7 @@ import luckysheetConfigsetting from "../controllers/luckysheetConfigsetting";
 import Store from "../store/index";
 
 //Set cell value
-function setcellvalue(r, c, d, v) {
+function setcellvalue(r, c, d, v, sheetOrder) {
     if (d == null) {
         d = Store.flowdata;
     }
@@ -15,7 +15,11 @@ function setcellvalue(r, c, d, v) {
     let vupdate;
 
     // 新增：检测是否为超长数字字符串（整数部分 ≥ 16 位或总有效数字 ≥ 16
-    const isLongNum = typeof v === 'string' && /^-?\d+\.?\d*$/.test(v) && v.replace('-', '').replace('.', '').length > 16;
+    // 日期输入先按序列处理，避免大数精度分支提前覆盖日期格式。
+    const dateInput = typeof v === 'string' && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === 'function'
+        ? luckysheetConfigsetting.hook.cellValueFormat(v, cell, true, r, c, sheetOrder)
+        : null;
+    const isLongNum = dateInput == null && typeof v === 'string' && /^-?\d+\.?\d*$/.test(v) && v.replace('-', '').replace('.', '').length > 16;
     if (isLongNum) {
         // 获取保留小数位数（从配置读取，默认2）
         let precision = (luckysheetConfigsetting.accuracy !== undefined) 
@@ -90,6 +94,18 @@ function setcellvalue(r, c, d, v) {
     // 如果 cell 被重置为 {} 但原对象有 ct，则恢复
     if (hasCt && cell && !cell.ct) {
         cell.ct = hasCt;
+    }
+
+    // 日期格式的写值与显示分开处理，业务钩子未处理时继续使用原生逻辑。
+    if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === 'function') {
+        const dateValue = dateInput || luckysheetConfigsetting.hook.cellValueFormat(vupdate, cell, typeof v === 'string', r, c, sheetOrder);
+        if (dateValue != null) {
+            cell.v = dateValue.v;
+            cell.m = dateValue.m;
+            cell.ct = dateValue.ct;
+            d[r][c] = cell;
+            return cell;
+        }
     }
 
     let vupdateStr = vupdate.toString();

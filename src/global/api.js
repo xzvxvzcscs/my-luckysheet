@@ -175,7 +175,7 @@ export function setCellValue(row, column, value, options = {}) {
 
     if(value == null || value.toString().length == 0){
         formula.delFunctionGroup(row, column);
-        setcellvalue(row, column, data, value);
+        setcellvalue(row, column, data, value, order);
     }
     else if(value instanceof Object){
         let curv = {};
@@ -216,7 +216,7 @@ export function setCellValue(row, column, value, options = {}) {
             if(value.m!=null){
                 curv.m = value.m;
             }
-            setcellvalue(row, column, data, curv);//update text value
+            setcellvalue(row, column, data, curv, order);
         }
         for(let attr in value){
             let v = value[attr];
@@ -235,7 +235,7 @@ export function setCellValue(row, column, value, options = {}) {
         }
         else{
             formula.delFunctionGroup(row, column);
-            setcellvalue(row, column, data, value);
+            setcellvalue(row, column, data, value, order);
         }
     }
 

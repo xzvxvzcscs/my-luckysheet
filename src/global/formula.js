@@ -370,7 +370,10 @@ const luckysheetformula = {
             } else if (cell.f != null) {
                 value = getcellvalue(r, c, d, "f");
             } else {
-                value = valueShowEs(r, c, d);
+                value = luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellEditValue === "function"
+                    ? luckysheetConfigsetting.hook.cellEditValue(cell)
+                    : null;
+                if (value == null) value = valueShowEs(r, c, d);
                 if (typeof value === "string") {
                     value = value.replace(/\</g, "&lt;").replace(/\>/g, "&gt;");
                 }
@@ -1409,6 +1412,12 @@ const luckysheetformula = {
             return;
         }
 
+        // 原生编辑入口随后会把标量包装成对象，日期必须在此之前解析，依赖公式也使用转换后的序列。
+        let dateInput = null;
+        if (!isCurInline && !dropdownRule && typeof value === "string" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === "function") {
+            dateInput = luckysheetConfigsetting.hook.cellValueFormat(value, curv, true, r, c);
+            if (dateInput != null) value = dateInput.v;
+        }
         // 未改动的公式仍允许重算缓存，但退出编辑时不应重新调整行高。
         const sameFormula = getObjType(value) == "string" && getObjType(curv) == "object" && value === curv.f;
         if (!isCurInline) {
@@ -1418,7 +1427,8 @@ const luckysheetformula = {
                     return;
                 }
             } else if (curv != null && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
-                if (getObjType(curv) == "object" && (value == curv.f || value == curv.v || value == curv.m)) {
+                // 公式重新提交时仍需计算，日期覆盖公式时也不能沿用旧缓存值。
+                if (getObjType(curv) == "object" && (value == curv.f || (dateInput == null || curv.f == null) && (value == curv.v || value == curv.m))) {
                     _this.cancelNormalSelected();
                     return;
                 } else if (value == curv) {

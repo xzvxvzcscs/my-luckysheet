@@ -17,6 +17,7 @@ import {isInlineStringCell} from './inlineString';
 import Store from '../store';
 import server from './server';
 import method from '../global/method';
+import luckysheetConfigsetting from './luckysheetConfigsetting';
 
 export function luckysheetupdateCell(row_index1, col_index1, d, cover, isnotfocus) {
     if(!checkProtectionLocked(row_index1, col_index1, Store.currentSheetIndex)){
@@ -174,7 +175,10 @@ export function luckysheetupdateCell(row_index1, col_index1, d, cover, isnotfocu
                 value = getcellvalue(row_index, col_index, d, "f");
             }
             else{
-                value = valueShowEs(row_index, col_index, d);
+                value = luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellEditValue === 'function'
+                    ? luckysheetConfigsetting.hook.cellEditValue(cell)
+                    : null;
+                if (value == null) value = valueShowEs(row_index, col_index, d);
                 if(cell.qp=="1"){
                     value = value ? ("" + value) : value;
                 }
