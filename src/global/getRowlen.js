@@ -98,9 +98,11 @@ function rowlenByRange(d, r1, r2, cfg) {
 
 //根据内容计算行高
 function computeRowlenByContent(d, r) {
+    // 选区可能超出已有数据，空占位行沿用默认行高，避免读取不存在的行。
+    if (!Array.isArray(d) || !Array.isArray(d[r])) return Store.defaultrowlen;
     let currentRowLen = 0;
 
-    let canvas = $("#luckysheetTableContent").get(0).getContext("2d");
+    let canvas = ($("#luckysheetTableContent").get(0) || document.createElement("canvas")).getContext("2d");
     canvas.textBaseline = 'top'; //textBaseline以top计算
 
     for(let c = 0; c < d[r].length; c++){
@@ -157,13 +159,13 @@ function computeCellWidth(cell, col_index) {
 
 function computeColWidthByContent(d, c, rh) {
     let currentColLen = 0;
-    let rowlenArr = computeRowlenArr(rh, c)
+    let rowlenArr = computeRowlenArr(rh, Store.config)
 
-    let canvas = $("#luckysheetTableContent").get(0).getContext("2d");
+    let canvas = ($("#luckysheetTableContent").get(0) || document.createElement("canvas")).getContext("2d");
     canvas.textBaseline = 'top'; //textBaseline以top计算
 
     for (var i = 0; i < d.length; i++) {
-        var cell = d[i][c]
+        var cell = d[i] && d[i][c]
 
         if (cell != null && (cell.v != null || isInlineStringCell(cell))) {
             let cellHeight = rowlenArr[c];

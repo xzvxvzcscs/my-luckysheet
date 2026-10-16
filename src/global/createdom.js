@@ -56,7 +56,7 @@ export default function luckysheetcreatedom(colwidth, rowheight, data, menu, tit
         Store.config = {};
     }
 
-    rhchInit(rowheight, colwidth);
+    rhchInit(rowheight, colwidth, data);
 
     const _locale = locale();
     const locale_info = _locale.info;

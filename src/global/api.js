@@ -6284,9 +6284,21 @@ export function setDataVerification(optionItem, options = {}) {
         hintText: hintText,
     }
 
+    // 服务端回填只恢复本地状态，避免复制整表、写入撤销记录及广播协作消息。
+    if (options.silent === true) {
+        file.dataVerification = file.dataVerification || {};
+        for (let r = range.row[0]; r <= range.row[1]; r++) {
+            for (let c = range.column[0]; c <= range.column[1]; c++) {
+                file.dataVerification[r + '_' + c] = item;
+            }
+        }
+        if (file.index == Store.currentSheetIndex) dataVerificationCtrl.dataVerification = file.dataVerification;
+        if (success && typeof success === 'function') success();
+        return;
+    }
     let currentDataVerification = $.extend(true, {}, file.dataVerification);
 
-    let data = $.extend(true, [], file.data);
+    let data = type == 'checkbox' ? $.extend(true, [], file.data) : file.data;
     if(data.length == 0){
         data = sheetmanage.buildGridData(file);
     }
