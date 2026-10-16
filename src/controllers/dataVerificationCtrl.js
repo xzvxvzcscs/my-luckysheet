@@ -262,11 +262,12 @@ const dataVerificationCtrl = {
         });
         $(document).off("click.dropdownListItem").on("click.dropdownListItem", "#luckysheet-dataVerification-dropdown-List .dropdown-List-item", function(e) {
             var $item = $(this);
-            let value = e.target.innerText;
+            // 按选项完整文本写入，保留连续空格、尾部空格和换行。
+            let value = this.textContent;
             if ($item.hasClass('multi')) {
                 $item.toggleClass('checked');
                 value = $.map($("#luckysheet-dataVerification-dropdown-List").children().filter('.checked'), function(el) {
-                    return el.innerText;
+                    return el.textContent;
                 }).join(',');
             } else {
                 $("#luckysheet-dataVerification-dropdown-List").hide();
@@ -1507,23 +1508,23 @@ const dataVerificationCtrl = {
         let item = _this.dataVerification[rowIndex + '_' + colIndex];
         let list = _this.getDropdownList(item.value1);
 
-        let optionHtml = '';
+        // 纯文本节点保留选项中的尖括号和实体文本，避免被当作 HTML 解析。
+        let optionNodes = document.createDocumentFragment();
         if (item.type === 'dropdown' && item.type2) {
             // 下拉多选的情况下 将已经选择的标出来
             let cellValue = getcellvalue(rowIndex, colIndex, null);
             let valueArr = isRealNull(cellValue) ? [] : cellValue.split(',');
             list.forEach(i => {
-                let checked = valueArr.indexOf(i) !== -1;
-                optionHtml += `<div class="dropdown-List-item  luckysheet-mousedown-cancel multi${checked ? ' checked': ''}">${i}</div>`;
+                optionNodes.appendChild($('<div>').addClass(`dropdown-List-item luckysheet-mousedown-cancel multi${valueArr.indexOf(i) !== -1 ? ' checked': ''}`).text(i)[0]);
             });
         } else {
             list.forEach(i => {
-                optionHtml += `<div class="dropdown-List-item luckysheet-mousedown-cancel">${i}</div>`;
+                optionNodes.appendChild($('<div>').addClass('dropdown-List-item luckysheet-mousedown-cancel').text(i)[0]);
             });
         }
 
         $("#luckysheet-dataVerification-dropdown-List")
-        .html(optionHtml)
+        .empty().append(optionNodes)
         .prop("data-index", rowIndex + '_' + colIndex)
         .show()
         .css({
@@ -1542,6 +1543,15 @@ const dataVerificationCtrl = {
         }
     },
     getDropdownList: function(txt){
+        // 历史结构化列表保留选项内的逗号和空格，不再作为内联列表拆分。
+        if (typeof txt === 'string' && txt.startsWith('__UPRR_DROPDOWN_OPTIONS__:')) {
+            try {
+                const options = JSON.parse(txt.slice('__UPRR_DROPDOWN_OPTIONS__:'.length));
+                if (Array.isArray(options)) return options.map(option => String(option));
+            } catch {
+                // 历史配置解析失败时仍按原有内联列表处理，不中断表格初始化。
+            }
+        }
         let list = [];
 
         if(formula.iscelldata(txt)){
