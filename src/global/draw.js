@@ -2188,7 +2188,17 @@ function cellOverflow_colIn(map, r, c, col_st, col_ed) {
                 if (c >= stc && c <= edc) {
                     colIn = true;
 
-                    if (c == edc || c == col_ed) {
+                    let lastColumn = Math.min(edc, col_ed);
+                    // 隐藏列不参与绘制，溢出文字应在范围内最后一个可见列完成绘制。
+                    while (
+                        lastColumn >= stc &&
+                        Store.config.colhidden != null &&
+                        Store.config.colhidden[lastColumn] != null
+                    ) {
+                        lastColumn--;
+                    }
+
+                    if (c == lastColumn) {
                         colLast = true;
                         break;
                     }
