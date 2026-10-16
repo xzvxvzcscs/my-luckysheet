@@ -854,6 +854,25 @@ export default [
         ]
     },
     {
+        "n": "ROUNDBANK",
+        "t": 0,
+        "m": [1, 2],
+        "p": [
+            {
+                "example": "2.5",
+                "require": "m",
+                "repeat": "n",
+                "type": "rangenumber"
+            },
+            {
+                "example": "0",
+                "require": "o",
+                "repeat": "n",
+                "type": "rangenumber"
+            }
+        ]
+    },
+    {
         "n": "SERIESSUM",
         "t": 0,
         "m": [

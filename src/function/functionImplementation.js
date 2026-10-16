@@ -4056,6 +4056,73 @@ const functionImplementation = {
             return [formula.error.v, err];
         }
     },
+    "ROUNDBANK": function() {
+        // 必要参数个数错误检测
+        if (arguments.length < this.m[0] || arguments.length > this.m[1]) {
+            return formula.error.na;
+        }
+
+        // 参数类型错误检测
+        for (var i = 0; i < arguments.length; i++) {
+            var p = formula.errorParamCheck(this.p, arguments[i], i);
+            if (!p[0]) {
+                return formula.error.v;
+            }
+        }
+
+        try {
+            // 要舍入的数字
+            var number = func_methods.getFirstValue(arguments[0]);
+            if (valueIsError(number)) {
+                return number;
+            }
+            if (!isRealNum(number)) {
+                return formula.error.v;
+            }
+            number = parseFloat(number);
+
+            // 小数位数（默认 0）
+            var num_digits = 0;
+            if (arguments.length >= 2) {
+                num_digits = func_methods.getFirstValue(arguments[1]);
+                if (valueIsError(num_digits)) {
+                    return num_digits;
+                }
+                if (!isRealNum(num_digits)) {
+                    return formula.error.v;
+                }
+                num_digits = parseInt(num_digits);
+            }
+
+            // 处理缩放因子（支持负数位，如 -1 舍入到十位）
+            var factor = Math.pow(10, num_digits);
+            var scaled = number * factor;
+            var absScaled = Math.abs(scaled);
+            var integerPart = Math.floor(absScaled);
+            var fractional = absScaled - integerPart;
+
+            var roundedAbs;
+            if (fractional === 0.5) {
+                // 五成双：看整数部分的奇偶性
+                if (integerPart % 2 === 0) {
+                    roundedAbs = integerPart;      // 偶数舍
+                } else {
+                    roundedAbs = integerPart + 1;  // 奇数入
+                }
+            } else {
+                roundedAbs = Math.round(absScaled); // 普通四舍五入
+            }
+
+            // 恢复符号
+            var result = (number < 0) ? -roundedAbs : roundedAbs;
+            return result / factor;
+        }
+        catch (e) {
+            var err = e;
+            err = formula.errorInfo(err);
+            return [formula.error.v, err];
+        }
+    },
     "SERIESSUM": function() {
         //必要参数个数错误检测
         if (arguments.length < this.m[0] || arguments.length > this.m[1]) {
