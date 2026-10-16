@@ -71,6 +71,145 @@ import { createLuckyChart, hideAllNeedRangeShow } from "../expendPlugins/chart/p
 import luckysheetformula from "../global/formula";
 import {createExportDialog,fetchAndDownloadXlsx} from "../expendPlugins/exportXlsx/plugin";
 
+/**
+ * 按住 Ctrl 点击单元格时，切换该单元格（或合并矩形）的选中状态
+ * @param {number} row - 点击的行索引（已映射合并）
+ * @param {number} col - 点击的列索引（已映射合并）
+ * @param {number} rowEnd - 合并结束行（若为合并区域，由外部传入）
+ * @param {number} colEnd - 合并结束列（若为合并区域，由外部传入）
+ */
+function toggleCellSelection(row, col, rowEnd, colEnd) {
+    // 1. 确定要操作的矩形范围（可能是合并单元格）
+    let targetRect = { row: [row, rowEnd || row], column: [col, colEnd || col] };
+    // 但实际需要检查是否是合并单元格，如果是，使用合并范围
+    // 这里我们通过 Store.flowdata 和 Store.config.merge 来获取
+    const mergeInfo = getMergeRange(row, col);
+    if (mergeInfo) {
+        targetRect = mergeInfo; // { row: [r1, r2], column: [c1, c2] }
+    }
+
+    // 2. 查找包含该矩形的选区索引
+    let indicesToRemove = [];
+    let selList = Store.luckysheet_select_save;
+    for (let i = 0; i < selList.length; i++) {
+        const sel = selList[i];
+        if (isRectInside(targetRect, sel)) {
+            indicesToRemove.push(i);
+        }
+    }
+
+    // 3. 如果找到了包含的选区，则移除它们并分割
+    if (indicesToRemove.length > 0) {
+        // 从后往前删除
+        indicesToRemove.sort((a, b) => b - a).forEach(idx => {
+            const sel = selList[idx];
+            // 分割选区，去掉 targetRect
+            const subRects = splitRect(sel, targetRect);
+            // 将子矩形加入列表（但注意顺序，可以直接 push）
+            // 为了避免重复，可以简单添加（但可能产生重叠，但后续绘制会处理）
+            // 为了更纯净，可以过滤掉与现有选区完全重复的，但简单起见直接添加
+            subRects.forEach(rect => {
+                if (rect.row[0] <= rect.row[1] && rect.column[0] <= rect.column[1]) {
+                    selList.push({
+                        row: rect.row,
+                        column: rect.column,
+                        row_focus: rect.row[0],
+                        column_focus: rect.column[0],
+                        // 其他字段如 left, width 等会在后续 selectHightlightShow 中重新计算
+                    });
+                }
+            });
+            // 移除原选区
+            selList.splice(idx, 1);
+        });
+    } else {
+        // 4. 如果点击的矩形不在任何选区中，则添加它（作为新选区）
+        selList.push({
+            row: targetRect.row,
+            column: targetRect.column,
+            row_focus: targetRect.row[0],
+            column_focus: targetRect.column[0],
+        });
+    }
+
+    // 5. 清理空选区（如果选区列表为空，重置状态）
+    if (selList.length === 0) {
+        Store.luckysheet_select_status = false;
+        formula.fucntionboxshow(-1, -1);
+        menuButton.menuButtonFocus(null, -1, -1);
+        $("#luckysheet-row-count-show, #luckysheet-column-count-show").hide();
+    } else {
+        Store.luckysheet_select_status = true;
+    }
+
+    // 6. 重新计算各选区的 left, width, top, height 等位置信息
+    // 因为后续 selectHightlightShow 会基于现有的 row/column 重新计算，所以我们可以先不设置这些字段
+    // 但为了兼容，我们可以调用 updateSelectionPositions 或者直接依赖 selectHightlightShow 内部重新计算
+    // 所以这里只需调用 selectHightlightShow 和刷新
+    selectHightlightShow();        // 更新高亮
+    luckysheetrefreshgrid();       // 重绘表格
+    // 同步后端（若需要）
+    server.saveParam("mv", Store.currentSheetIndex, selList);
+}
+
+/**
+ * 获取某个单元格的合并范围（如果它是合并单元格的一部分）
+ * @param {number} r
+ * @param {number} c
+ * @returns {object|null} { row: [r1, r2], column: [c1, c2] }
+ */
+function getMergeRange(r, c) {
+    const merge = Store.config.merge;
+    if (!merge) return null;
+    // 检查该单元格是否在某个合并中
+    const key = r + '_' + c;
+    // 但 merge 的 key 是合并左上角坐标，值为 { r, c, rs, cs }
+    for (const k in merge) {
+        const mc = merge[k];
+        if (r >= mc.r && r < mc.r + mc.rs && c >= mc.c && c < mc.c + mc.cs) {
+            return { row: [mc.r, mc.r + mc.rs - 1], column: [mc.c, mc.c + mc.cs - 1] };
+        }
+    }
+    return null;
+}
+
+/**
+ * 判断矩形 a 是否完全包含在矩形 b 内
+ */
+function isRectInside(a, b) {
+    return a.row[0] >= b.row[0] && a.row[1] <= b.row[1] &&
+           a.column[0] >= b.column[0] && a.column[1] <= b.column[1];
+}
+
+/**
+ * 分割矩形，移除其中的子矩形 target
+ * 返回一个数组，包含分割后的矩形（最多四个）
+ */
+function splitRect(rect, target) {
+    const { row: [r1, r2], column: [c1, c2] } = rect;
+    const { row: [tr1, tr2], column: [tc1, tc2] } = target;
+    const subRects = [];
+
+    // 上方矩形 (行在 target 之上)
+    if (r1 < tr1) {
+        subRects.push({ row: [r1, tr1 - 1], column: [c1, c2] });
+    }
+    // 下方矩形 (行在 target 之下)
+    if (tr2 < r2) {
+        subRects.push({ row: [tr2 + 1, r2], column: [c1, c2] });
+    }
+    // 左侧矩形 (同 target 行，列在左侧)
+    if (c1 < tc1) {
+        subRects.push({ row: [tr1, tr2], column: [c1, tc1 - 1] });
+    }
+    // 右侧矩形 (同 target 行，列在右侧)
+    if (tc2 < c2) {
+        subRects.push({ row: [tr1, tr2], column: [tc2 + 1, c2] });
+    }
+
+    return subRects;
+}
+
 //, columeflowset, rowflowset
 export default function luckysheetHandler() {
     const os = browser.detectOS(),
@@ -385,7 +524,7 @@ export default function luckysheetHandler() {
 
             //数据验证 单元格聚焦
             dataVerificationCtrl.cellFocus(row_index, col_index, true);
-            luckysheetformula.cellFocus(row_index, col_index);
+            luckysheetformula?.cellFocus(row_index, col_index);
 
             //若点击单元格部分不在视图内
             if (col_pre < $("#luckysheet-cell-main").scrollLeft()) {
@@ -1135,21 +1274,15 @@ export default function luckysheetHandler() {
                         );
                     }
                 } else if (event.ctrlKey) {
-                    //选区添加
-                    Store.luckysheet_select_save.push({
-                        left: col_pre,
-                        width: col - col_pre - 1,
-                        top: row_pre,
-                        height: row - row_pre - 1,
-                        left_move: col_pre,
-                        width_move: col - col_pre - 1,
-                        top_move: row_pre,
-                        height_move: row - row_pre - 1,
-                        row: [row_index, row_index_ed],
-                        column: [col_index, col_index_ed],
-                        row_focus: row_index,
-                        column_focus: col_index,
-                    });
+                    const mergeRect = getMergeRange(row_index, col_index);
+                    if (mergeRect) {
+                        toggleCellSelection(mergeRect.row[0], mergeRect.column[0], mergeRect.row[1], mergeRect.column[1]);
+                    } else {
+                        // 普通单元格
+                        toggleCellSelection(row_index, col_index, row_index, col_index);
+                    }
+                    event.preventDefault();
+                    return;
                 } else {
                     Store.luckysheet_select_save.length = 0;
                     Store.luckysheet_select_save.push({

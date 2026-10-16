@@ -6150,11 +6150,11 @@ const luckysheetformula = {
             let txt = ''
             file.calcChain?.find(({ r, c, func }) => {
                 if(r === row_index && c === col_index){
-                    txt = Store.flowdata[r][c]?.f;
+                    txt = Store.flowdata[r][c]?.f || '';
                     return true
                 }
             });
-            if(txt.indexOf('=GET_AIRTABLE_DATA') === 0){
+            if(txt?.indexOf('=GET_AIRTABLE_DATA') === 0){
                 this.showButton(row_index, col_index)
                 this.addButtonListener(txt,row_index, col_index,)
             }else{
