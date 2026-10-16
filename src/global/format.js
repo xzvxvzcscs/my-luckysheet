@@ -2,6 +2,56 @@ import { isRealNum, valueIsError } from './validate';
 import { isdatetime } from './datecontroll';
 import { getcellvalue } from './getdata';
 import numeral from 'numeral';
+import { BigNumber } from 'bignumber.js';
+
+/**
+ * 银行家舍入法（四舍六入五成双）
+ * @param {number|string} value - 要舍入的数值
+ * @param {number} digits - 保留小数位数，默认 2
+ * @returns {string} 舍入后的字符串表示
+ * 舍入位 0-4：直接舍去
+ * 舍入位 6-9：进位
+ * 舍入位是 5：
+ * 5 后面还有非 0 数字：进位
+ * 5 后面全是 0 或没有数字：看前一位，前一位是偶数就舍，奇数就进
+ */
+    export function bankerRound(numStr, decimals) {
+    if (numStr == null) return numStr;
+    const bn = new BigNumber(numStr);
+    // BigNumber.ROUND_HALF_EVEN 即为银行家舍入
+    return bn.toFixed(decimals, BigNumber.ROUND_HALF_EVEN);
+    // if (isNaN(numStr)) return String(numStr);
+    // const sign = numStr < 0 ? -1 : 1;
+    // const abs = Math.abs(numStr);
+    // const multiplier = Math.pow(10, decimals);
+    // const scaled = parseFloat((abs * multiplier).toFixed(12));
+    // const integerPart = Math.floor(scaled);
+    // const frac = scaled - integerPart;
+    // const eps = 1e-12;
+    // let shouldCarry = false;
+    // if (frac > 0.5 + eps) {
+    //     shouldCarry = true;
+    // } else if (frac < 0.5 - eps) {
+    //     shouldCarry = false;
+    // } else {
+    //     // frac 约等于 0.5，看整数部分奇偶
+    //     shouldCarry = (integerPart % 2) === 1;
+    // }
+    // let result = integerPart + (shouldCarry ? 1 : 0);
+    // let resultStr = result.toString();
+    // if (decimals === 0) {
+    //     return sign < 0 ? '-' + resultStr : resultStr;
+    // } else {
+    //     // 补足小数位（确保位数正确）
+    //     if (resultStr.length <= decimals) {
+    //         resultStr = '0'.repeat(decimals + 1 - resultStr.length) + resultStr;
+    //     }
+    //     const intPartStr = resultStr.slice(0, resultStr.length - decimals) || '0';
+    //     const decPartStr = resultStr.slice(resultStr.length - decimals);
+    //     return sign < 0 ? '-' + intPartStr + '.' + decPartStr : intPartStr + '.' + decPartStr;
+    // }
+}
+
 
 var SSF = ({});
 var make_ssf = function make_ssf(SSF) {
@@ -475,7 +525,6 @@ var make_ssf = function make_ssf(SSF) {
     }
     var write_num = (function make_write_num() {
         var pct1 = /%/g;
-
         function write_num_pct(type, fmt, val) {
             var sfmt = fmt.replace(pct1, ""),
                 mul = fmt.length - sfmt.length;
@@ -483,9 +532,18 @@ var make_ssf = function make_ssf(SSF) {
         }
 
         function write_num_cm(type, fmt, val) {
+            // var idx = fmt.length - 1;
+            // while (fmt.charCodeAt(idx - 1) === 44) --idx;
+            // return write_num(type, fmt.substr(0, idx), val / Math.pow(10, 3 * (fmt.length - idx)));
+
             var idx = fmt.length - 1;
-            while (fmt.charCodeAt(idx - 1) === 44) --idx;
-            return write_num(type, fmt.substr(0, idx), val / Math.pow(10, 3 * (fmt.length - idx)));
+            while (idx > 0 && fmt.charCodeAt(idx - 1) === 44) --idx;
+            var divisor = Math.pow(10, 3 * (fmt.length - idx));
+            var scaled = val / divisor;
+            // 修正浮点误差，保留 12 位小数
+            scaled = parseFloat(scaled.toFixed(12));
+            var baseFmt = fmt.substr(0, idx);
+            return write_num(type, baseFmt, scaled);
         }
 
         function write_num_exp(fmt, val) {
@@ -554,22 +612,33 @@ var make_ssf = function make_ssf(SSF) {
         }
 
         function rnd(val, d) {
-            var dd = Math.pow(10, d);
-            return "" + (Math.round(val * dd) / dd);
+            // var dd = Math.pow(10, d);
+            // return "" + (Math.round(val * dd) / dd);
+            return bankerRound(val, d);
         }
 
         function dec(val, d) {
-            var _frac = val - Math.floor(val),
-                dd = Math.pow(10, d);
-            if (d < ('' + Math.round(_frac * dd)).length) return 0;
-            return Math.round(_frac * dd);
+            // var _frac = val - Math.floor(val),
+            //     dd = Math.pow(10, d);
+            // if (d < ('' + Math.round(_frac * dd)).length) return 0;
+            // return Math.round(_frac * dd);
+            var _frac = val - Math.floor(val);
+            var rounded = bankerRound(_frac, d);
+            var parts = rounded.split('.');
+            var decPart = (parts[1] || '').padEnd(d, '0');
+            return parseInt(decPart, 10);
         }
 
         function carry(val, d) {
-            if (d < ('' + Math.round((val - Math.floor(val)) * Math.pow(10, d))).length) {
-                return 1;
-            }
-            return 0;
+            // if (d < ('' + Math.round((val - Math.floor(val)) * Math.pow(10, d))).length) {
+            //     return 1;
+            // }
+            // return 0;
+            var frac = val - Math.floor(val);
+            var rounded = bankerRound(frac, d);
+            var parts = rounded.split('.');
+            var intPart = parseInt(parts[0], 10);
+            return intPart > 0 ? 1 : 0;
         }
 
         function flr(val) {
@@ -610,7 +679,16 @@ var make_ssf = function make_ssf(SSF) {
             }
             if ((r = fmt.match(/^#{1,3},##0(\.?)$/))) return sign + commaify(pad0r(aval, 0));
             if ((r = fmt.match(/^#,##0\.([#0]*0)$/))) {
-                return val < 0 ? "-" + write_num_flt(type, fmt, -val) : commaify("" + (Math.floor(val) + carry(val, r[1].length))) + "." + pad0(dec(val, r[1].length), r[1].length);
+                var decimalPlaces = r[1].length;
+                var sign = val < 0 ? '-' : '';
+                var absVal = Math.abs(val);
+                var rounded = bankerRound(absVal, decimalPlaces);
+                var parts = rounded.split('.');
+                var intPart = parts[0];
+                var decPart = parts[1] || '';
+                intPart = commaify(intPart);
+                return sign + intPart + (decPart ? '.' + decPart : '');
+                // return val < 0 ? "-" + write_num_flt(type, fmt, -val) : commaify("" + (Math.floor(val) + carry(val, r[1].length))) + "." + pad0(dec(val, r[1].length), r[1].length);
             }
             if ((r = fmt.match(/^#,#*,#0/))) return write_num_flt(type, fmt.replace(/^#,#*,/, ""), val);
             if ((r = fmt.match(/^([0#]+)(\\?-([0#]+))+$/))) {
@@ -629,6 +707,7 @@ var make_ssf = function make_ssf(SSF) {
                 ri = Math.min(r[4].length, 7);
                 ff = frac(aval, Math.pow(10, ri) - 1, false);
                 o = "" + sign;
+                console.log(ff)
                 oa = write_num("n", r[1], ff[1]);
                 if (oa.charAt(oa.length - 1) == " ") oa = oa.substr(0, oa.length - 1) + "0";
                 o += oa + r[2] + "/" + r[3];
@@ -648,7 +727,9 @@ var make_ssf = function make_ssf(SSF) {
                 return hashq(fmt.substr(0, fmt.length - o.length)) + o;
             }
             if ((r = fmt.match(/^([#0?]+)\.([#0]+)$/))) {
-                o = "" + val.toFixed(Math.min(r[2].length, 10)).replace(/([^0])0+$/, "$1");
+                // o = "" + val.toFixed(Math.min(r[2].length, 10)).replace(/([^0])0+$/, "$1");
+                var decimalDigits = Math.min(r[2].length, 10);
+                o = bankerRound(val, decimalDigits);
                 ri = o.indexOf(".");
                 var lres = fmt.indexOf(".") - ri,
                     rres = fmt.length - o.length - lres;
@@ -678,9 +759,17 @@ var make_ssf = function make_ssf(SSF) {
         }
 
         function write_num_cm2(type, fmt, val) {
+            // var idx = fmt.length - 1;
+            // while (fmt.charCodeAt(idx - 1) === 44) --idx;
+            // return write_num(type, fmt.substr(0, idx), val / Math.pow(10, 3 * (fmt.length - idx)));
+
             var idx = fmt.length - 1;
-            while (fmt.charCodeAt(idx - 1) === 44) --idx;
-            return write_num(type, fmt.substr(0, idx), val / Math.pow(10, 3 * (fmt.length - idx)));
+            while (idx > 0 && fmt.charCodeAt(idx - 1) === 44) --idx;
+            var divisor = Math.pow(10, 3 * (fmt.length - idx));
+            var scaled = val / divisor;
+            scaled = parseFloat(scaled.toFixed(12));
+            var baseFmt = fmt.substr(0, idx);
+            return write_num(type, baseFmt, scaled);
         }
 
         function write_num_pct2(type, fmt, val) {
@@ -787,7 +876,9 @@ var make_ssf = function make_ssf(SSF) {
                 return hashq(fmt.substr(0, fmt.length - o.length)) + o;
             }
             if ((r = fmt.match(/^([#0]+)\.([#0]+)$/))) {
-                o = "" + val.toFixed(Math.min(r[2].length, 10)).replace(/([^0])0+$/, "$1");
+                // o = "" + val.toFixed(Math.min(r[2].length, 10)).replace(/([^0])0+$/, "$1");
+                var decimalDigits = Math.min(r[2].length, 10);
+                o = bankerRound(val, decimalDigits);
                 ri = o.indexOf(".");
                 var lres = fmt.indexOf(".") - ri,
                     rres = fmt.length - o.length - lres;
@@ -1415,7 +1506,20 @@ var make_ssf = function make_ssf(SSF) {
         }
         return [l, ff];
     }
-
+    // 判断格式类型，返回 'internal'、'external' 或 false
+    function getWanFormatType(fmt) {
+        if (typeof fmt !== 'string') return false;
+        // 内部格式：w / W 开头
+        if (/^(w|W)((0?)|(0\.0+))$/.test(fmt)) return 'internal';
+        // 外部格式：如 0.0,万 或 0.00,万（无引号点）
+        if (/^0(\.0+)?,?"万(元)?"$/.test(fmt)) return 'external';
+        // WPS 格式：点号被双引号包围，逗号后可选双引号包围的内容（可为空）
+        // 支持：0"."0,        0"."0,""       0"."0,"万"       0"."0,,"千万元"
+        if (/^0(?:["][.]["]0+)?,{1,2}(?:"[^"]*")?$/.test(fmt)) {
+            return 'wps';
+        }
+        return false;
+    }
     function format(fmt, v, o) {
         if (o == null) o = {};
         var sfmt = "";
@@ -1432,131 +1536,167 @@ var make_ssf = function make_ssf(SSF) {
                 break;
         }
 
+        // 万元格式处理
+        let wanType = getWanFormatType(sfmt);
+        if (wanType) {
+            if (v === null || v === undefined || v === "") return "";
+            let num = Number(v);
+            if (isNaN(num)) return v;
+            let isNegative = num < 0;
+            if (isNegative) num = Math.abs(num);
+            let decimalPlaces = 0;
+            let suffix = "万";
+            let divisor = 10000;
+            let cleanFmt = sfmt.replace(/"(\.)"/g, '.');
+        
+            if (wanType === 'internal' || wanType === 'wps') {
+                if (/千万/.test(sfmt)) {
+                    divisor = 10000000;
+                    suffix = /千万元/.test(sfmt) ? "千万元" : "千万";
+                } else {
+                    suffix = /万元/.test(sfmt) ? "万元" : "万";
+                }
+                let scaled = num / divisor;
+                if (/^w$/i.test(sfmt)) {
+                    decimalPlaces = 0;
+                } else {
+                    let match = cleanFmt.match(/0\.(0+)/);
+                    decimalPlaces = match ? match[1].length : 0;
+                }
+                let formatted = bankerRound(scaled, decimalPlaces);
+                return (isNegative ? "-" : "") + formatted;
+            } else if (wanType === 'external') {
+                let match = cleanFmt.match(/0\.(0+)/);
+                decimalPlaces = match ? match[1].length : 0;
+                let formatted = bankerRound(num, decimalPlaces);
+                suffix = /万元/.test(sfmt) ? "万元" : "万";
+                return (isNegative ? "-" : "") + formatted;
+            }
+        }
         //new runze 增加万 亿 格式  
         //注："w":2万2500  "w0":2万2500  "w0.0":2万2500.2  "w0.00":2万2500.23......自定义精确度
-        var reg = /^(w|W)((0?)|(0\.0+))$/;
-        if(!!sfmt.match(reg)){
-            if(isNaN(v)){
-                return v;
-            }
+        // var reg = /^(w|W)((0?)|(0\.0+))$/;
+        // if(!!sfmt.match(reg)){
+        //     if(isNaN(v)){
+        //         return v;
+        //     }
 
-             //var v =300101886.436;
-            var acc = sfmt.slice(1); //取得0/0.0/0.00
-            var isNegative = false;
-            if(!isNaN(v) && Number(v) < 0){
-                isNegative = true;
-                v = Math.abs(v);
-            }
-            var vInt = parseInt(v);
+        //      //var v =300101886.436;
+        //     var acc = sfmt.slice(1); //取得0/0.0/0.00
+        //     var isNegative = false;
+        //     if(!isNaN(v) && Number(v) < 0){
+        //         isNegative = true;
+        //         v = Math.abs(v);
+        //     }
+        //     var vInt = parseInt(v);
              
-            var vlength = vInt.toString().length;
-            if( vlength> 4){
-                if(vlength > 8){
-                    var y =parseInt (v / 100000000);  //亿
-                    var w = parseInt(parseFloat(v).subtract(y*100000000) / 10000); //万
-                    var q = parseFloat(v).subtract(y*100000000 + w*10000); //千以后
-                    if(acc != ""){
-                        q = numeral(q).format(acc); //处理精确度
-                    }
-                    v = y + "亿" + w + "万" + q;
-                }else{
-                    var w = parseInt(v / 10000); //万
-                    var q = parseFloat(v).subtract(w*10000) //千以后
-                    if(acc != ""){
-                        q = numeral(q).format(acc); //处理精确度
-                    }
-                    v = w + "万" + q;
-                }
+        //     var vlength = vInt.toString().length;
+        //     if( vlength> 4){
+        //         if(vlength > 8){
+        //             var y =parseInt (v / 100000000);  //亿
+        //             var w = parseInt(parseFloat(v).subtract(y*100000000) / 10000); //万
+        //             var q = parseFloat(v).subtract(y*100000000 + w*10000); //千以后
+        //             if(acc != ""){
+        //                 q = numeral(q).format(acc); //处理精确度
+        //             }
+        //             v = y + "亿" + w + "万" + q;
+        //         }else{
+        //             var w = parseInt(v / 10000); //万
+        //             var q = parseFloat(v).subtract(w*10000) //千以后
+        //             if(acc != ""){
+        //                 q = numeral(q).format(acc); //处理精确度
+        //             }
+        //             v = w + "万" + q;
+        //         }
                 
 
-                if(v.indexOf("亿0万0") != -1){
-                    v = v.replace("0万0","");
-                }else if(v.indexOf("亿0万") != -1){
-                    v = v.replace("0万","");
-                }else if(v.indexOf("万0") != -1){
-                    v = v.replace("万0","万");
-                }
+        //         if(v.indexOf("亿0万0") != -1){
+        //             v = v.replace("0万0","");
+        //         }else if(v.indexOf("亿0万") != -1){
+        //             v = v.replace("0万","");
+        //         }else if(v.indexOf("万0") != -1){
+        //             v = v.replace("万0","万");
+        //         }
 
-                //舍弃正则后顾断言写法，旧浏览器不识别（360 V9）
-                if (v.indexOf("亿") != -1 && v.indexOf("万") == -1) { //1亿/1亿111 => 1亿/1亿0111
-                    var afterYi = v.substring(v.indexOf("亿") + 1);
-                    if (afterYi.substring(0, 1) !== "." && afterYi != "") {
-                        switch ((parseInt(afterYi) + "").length) {
-                            case 1:
-                                afterYi = "000" + afterYi;
-                                break;
-                            case 2:
-                                afterYi = "00" + afterYi;
-                                break;
-                            case 3:
-                                afterYi = "0" + afterYi;
-                                break;
-                        }
-                        v = v.substring(0, v.indexOf("亿") + 1) + afterYi;
-                    }
-                } else if (v.indexOf("亿") == -1 && v.indexOf("万") != -1) { //3万0011
-                    var afterWan = v.substring(v.indexOf("万") + 1);
-                    if (afterWan.substring(0, 1) !== "." && afterWan != "") {
-                        switch ((parseInt(afterWan) + "").length) {
-                            case 1:
-                                afterWan = "000" + afterWan;
-                                break;
-                            case 2:
-                                afterWan = "00" + afterWan;
-                                break;
-                            case 3:
-                                afterWan = "0" + afterWan;
-                                break;
-                        }
-                        v = v.substring(0, v.indexOf("万") + 1) + afterWan;
-                    }
-                } else if (v.indexOf("亿") != -1 && v.indexOf("万") != -1) { //1亿0053万0611
-                    var afterYi = v.substring(v.indexOf("亿") + 1,v.indexOf("万")),
-                        afterWan = v.substring(v.indexOf("万") + 1);
+        //         //舍弃正则后顾断言写法，旧浏览器不识别（360 V9）
+        //         if (v.indexOf("亿") != -1 && v.indexOf("万") == -1) { //1亿/1亿111 => 1亿/1亿0111
+        //             var afterYi = v.substring(v.indexOf("亿") + 1);
+        //             if (afterYi.substring(0, 1) !== "." && afterYi != "") {
+        //                 switch ((parseInt(afterYi) + "").length) {
+        //                     case 1:
+        //                         afterYi = "000" + afterYi;
+        //                         break;
+        //                     case 2:
+        //                         afterYi = "00" + afterYi;
+        //                         break;
+        //                     case 3:
+        //                         afterYi = "0" + afterYi;
+        //                         break;
+        //                 }
+        //                 v = v.substring(0, v.indexOf("亿") + 1) + afterYi;
+        //             }
+        //         } else if (v.indexOf("亿") == -1 && v.indexOf("万") != -1) { //3万0011
+        //             var afterWan = v.substring(v.indexOf("万") + 1);
+        //             if (afterWan.substring(0, 1) !== "." && afterWan != "") {
+        //                 switch ((parseInt(afterWan) + "").length) {
+        //                     case 1:
+        //                         afterWan = "000" + afterWan;
+        //                         break;
+        //                     case 2:
+        //                         afterWan = "00" + afterWan;
+        //                         break;
+        //                     case 3:
+        //                         afterWan = "0" + afterWan;
+        //                         break;
+        //                 }
+        //                 v = v.substring(0, v.indexOf("万") + 1) + afterWan;
+        //             }
+        //         } else if (v.indexOf("亿") != -1 && v.indexOf("万") != -1) { //1亿0053万0611
+        //             var afterYi = v.substring(v.indexOf("亿") + 1,v.indexOf("万")),
+        //                 afterWan = v.substring(v.indexOf("万") + 1);
 
-                    switch ((parseInt(afterYi) + "").length) {
-                        case 1:
-                            afterYi = "000" + afterYi;
-                            break;
-                        case 2:
-                            afterYi = "00" + afterYi;
-                            break;
-                        case 3:
-                            afterYi = "0" + afterYi;
-                            break;
-                    }
-                    v = v.substring(0, v.indexOf("亿") + 1) + afterYi + v.substring(v.indexOf("万"))
+        //             switch ((parseInt(afterYi) + "").length) {
+        //                 case 1:
+        //                     afterYi = "000" + afterYi;
+        //                     break;
+        //                 case 2:
+        //                     afterYi = "00" + afterYi;
+        //                     break;
+        //                 case 3:
+        //                     afterYi = "0" + afterYi;
+        //                     break;
+        //             }
+        //             v = v.substring(0, v.indexOf("亿") + 1) + afterYi + v.substring(v.indexOf("万"))
                     
 
-                    if (afterWan.substring(0, 1) !== "." && afterWan != "") {
-                        switch ((parseInt(afterWan) + "").length) {
-                            case 1:
-                                afterWan = "000" + afterWan;
-                                break;
-                            case 2:
-                                afterWan = "00" + afterWan;
-                                break;
-                            case 3:
-                                afterWan = "0" + afterWan;
-                                break;
-                        }
-                        v = v.substring(0, v.indexOf("万") + 1) + afterWan
-                    }
-                }
+        //             if (afterWan.substring(0, 1) !== "." && afterWan != "") {
+        //                 switch ((parseInt(afterWan) + "").length) {
+        //                     case 1:
+        //                         afterWan = "000" + afterWan;
+        //                         break;
+        //                     case 2:
+        //                         afterWan = "00" + afterWan;
+        //                         break;
+        //                     case 3:
+        //                         afterWan = "0" + afterWan;
+        //                         break;
+        //                 }
+        //                 v = v.substring(0, v.indexOf("万") + 1) + afterWan
+        //             }
+        //         }
 
-            }else{
-                if(acc != ""){
-                    v = numeral(v).format(acc); //处理精确度
-                }
-            }
-            if(isNegative){
-                return '-' + v;
-            }else{
-                return v;
-            }
+        //     }else{
+        //         if(acc !== ""){
+        //             result = numeral(v).format(acc) + "万";
+        //         }
+        //     }
+        //     if(isNegative){
+        //         return '-' + v;
+        //     }else{
+        //         return v;
+        //     }
             
-        }
-
+        // }
 
         if (isgeneral(sfmt, 0)) return general_fmt(v, o);
         if (v instanceof Date) v = datenum_local(v, o.date1904);
@@ -1756,14 +1896,14 @@ function fuzzydate(s) {
     return o;
 }
 
-export function genarate(value) {//万 单位格式增加！！！
+export function genarate(value) {
     var ret = [];
     var m = null, ct = {}, v = value;
     
     if(value == null){
         return null;
     }
-
+    // 如果传入的是对象且包含 ct，并且是外部格式，则转换
     if (/^-?[0-9]{1,}[,][0-9]{3}(.[0-9]{1,2})?$/.test(value)) { // 表述金额的字符串，如：12,000.00 或者 -12,000.00
         m = value
         v = Number(value.split('.')[0].replace(',', ''))
@@ -1797,7 +1937,7 @@ export function genarate(value) {//万 单位格式增加！！！
         m = value.toString();
         ct = { "fa": "@", "t": "s" };
     }
-    else if(isRealNum(value) && Math.abs(parseFloat(value)) > 0 && (Math.abs(parseFloat(value)) >= 1e+11 || Math.abs(parseFloat(value)) < 1e-9)){
+    else if(isRealNum(value) && Math.abs(parseFloat(value)) > 0 && (Math.abs(parseFloat(value)) >= 1e+16 || Math.abs(parseFloat(value)) < 1e-9)){
         if (value.length > 16) {
             v = value;
             ct = { 'fa': '@', 't': 's' }
@@ -1899,58 +2039,75 @@ export function genarate(value) {//万 单位格式增加！！！
             ct = { "fa": "@", "t": "s" };
         }
     }
-    else if(value.toString().indexOf(".") > -1){
-        if(value.toString().indexOf(".") == value.toString().lastIndexOf(".")){
-            var value1 = value.toString().split(".")[0];
-            var value2 = value.toString().split(".")[1];
+    // else if(value.toString().indexOf(".") > -1){
+    //     if(value.toString().indexOf(".") == value.toString().lastIndexOf(".")){
+    //         var value1 = value.toString().split(".")[0];
+    //         var value2 = value.toString().split(".")[1];
+    //         var len = 2;
+    //         // var len = value2.length;
+    //         // if(len > 9){
+    //         //     len = 9;
+    //         // }
 
-            var len = value2.length;
-            if(len > 9){
-                len = 9;
-            }
+    //         if(value1.indexOf(",") > -1){
+    //             var isThousands = true;
+    //             var ThousandsArr = value1.split(",");
 
-            if(value1.indexOf(",") > -1){
-                var isThousands = true;
-                var ThousandsArr = value1.split(",");
+    //             for(var i = 1; i < ThousandsArr.length; i++){
+    //                 if(!isRealNum(ThousandsArr[i]) || ThousandsArr[i].length < 3){
+    //                     isThousands = false;
+    //                     break;
+    //                 }
+    //             }
 
-                for(var i = 1; i < ThousandsArr.length; i++){
-                    if(!isRealNum(ThousandsArr[i]) || ThousandsArr[i].length < 3){
-                        isThousands = false;
-                        break;
-                    }
-                }
-
-                if(isThousands){
-                    ct = { "fa": "#,##0." + new Array(len + 1).join("0"), "t": "n" };
-                    v = numeral(value).value();
-                    m = SSF.format(ct.fa, v);
-                }
-                else{
-                    m = value.toString();
-                    ct = { "fa": "@", "t": "s" };
-                }
-            }
-            else{
-                if(isRealNum(value1) && isRealNum(value2)){
-                    ct = { "fa": "0." + new Array(len + 1).join("0"), "t": "n" };
-                    v = numeral(value).value();
-                    m = SSF.format(ct.fa, v);
-                }
-                else{
-                    m = value.toString();
-                    ct = { "fa": "@", "t": "s" };
-                }
-            }
-        }
-        else{
-            m = value.toString();
-            ct = { "fa": "@", "t": "s" };
-        }
-    }
+    //             if(isThousands){
+    //                 ct = { "fa": "#,##0." + new Array(len + 1).join("0"), "t": "n" };
+    //                 v = numeral(value).value();
+    //                 m = SSF.format(ct.fa, v);
+    //             }
+    //             else{
+    //                 m = value.toString();
+    //                 ct = { "fa": "@", "t": "s" };
+    //             }
+    //         }
+    //         else{
+    //             if(isRealNum(value1) && isRealNum(len)){
+    //                 ct = { "fa": "0." + new Array(len + 1).join("0"), "t": "n" };
+    //                 v = numeral(value).value();
+    //                 m = SSF.format(ct.fa, v);
+    //             }
+    //             else{
+    //                 m = value.toString();
+    //                 ct = { "fa": "@", "t": "s" };
+    //             }
+    //         }
+    //     }
+    //     else{
+    //         m = value.toString();
+    //         ct = { "fa": "@", "t": "s" };
+    //     }
+    // }
     else if(isRealNum(value)){
-        m = value.toString();
-        ct = { "fa": "General", "t": "n" };
-        v = parseFloat(value);
+        // m = value.toString();
+        // ct = { "fa": "General", "t": "n" };
+        // v = parseFloat(value);
+
+
+        let raw = parseFloat(value);
+        let str = raw.toString();
+        let isInteger = !str.includes('.') || /\.0+$/.test(str);
+        let fmt;
+        if (isInteger) {
+            fmt = "0";
+            m = bankerRound(raw, 0);
+        } else {
+            // 固定保留两位小数（可改为从全局配置读取）
+            const DECIMAL_PLACES = 2;
+            fmt = "0." + "0".repeat(DECIMAL_PLACES);
+            m = SSF.format(fmt, raw);
+        }
+        ct = { "fa": fmt, "t": "n" };
+        v = raw;
     }
     else if (isdatetime(value) && (value.toString().indexOf(".") > -1 || value.toString().indexOf(":") > -1 || value.toString().length < 16)){
         v = datenum_local(parseDate(value.toString().replace(/-/g, "/")));

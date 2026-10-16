@@ -1,6 +1,6 @@
 import { getObjType } from "../utils/util";
 import { isRealNull, isRealNum, valueIsError } from "./validate";
-import { genarate, update } from "./format";
+import { genarate, update, bankerRound } from "./format";
 import server from "../controllers/server";
 import luckysheetConfigsetting from "../controllers/luckysheetConfigsetting";
 import Store from "../store/index";
@@ -11,10 +11,34 @@ function setcellvalue(r, c, d, v) {
         d = Store.flowdata;
     }
     // 若采用深拷贝，初始化时的单元格属性丢失
-    // let cell = $.extend(true, {}, d[r][c]);
     let cell = d[r][c];
-
     let vupdate;
+
+    // 新增：检测是否为超长数字字符串（整数部分 ≥ 16 位或总有效数字 ≥ 16
+    const isLongNum = typeof v === 'string' && /^-?\d+\.?\d*$/.test(v) && v.replace('-', '').replace('.', '').length > 16;
+    if (isLongNum) {
+        // 获取保留小数位数（从配置读取，默认2）
+        let precision = (luckysheetConfigsetting.accuracy !== undefined) 
+                        ? parseInt(luckysheetConfigsetting.accuracy, 10) 
+                        : 2;
+        let fmt = "0." + "0".repeat(Math.max(0, precision));
+        let rounded = bankerRound(v, precision);
+        
+        // 确保 cell 为对象
+        if (cell == null || typeof cell !== 'object') {
+            cell = {};
+            d[r][c] = cell;
+        }
+        // 保存原始精确字符串
+        cell.raw = v;
+        // 存储近似数字作为 v（保持原有逻辑兼容性）
+        // cell.v = parseFloat(v);
+        cell.v = v;
+        cell.m = rounded;
+        cell.ct = { fa: fmt, t: "n" };
+        d[r][c] = cell;
+        return cell;
+    }
 
     if (getObjType(v) == "object") {
         if (cell == null) {
@@ -58,10 +82,14 @@ function setcellvalue(r, c, d, v) {
         return cell;
     }
 
-    // 1.为null
-    // 2.数据透视表的数据，flowdata的每个数据可能为字符串，结果就是cell == v == 一个字符串或者数字数据
-    if (isRealNull(cell) || ((getObjType(cell) === "string" || getObjType(cell) === "number") && cell === v)) {
+    // 如果 cell 是对象且含有 ct，则标记保留格式
+    let hasCt = cell && getObjType(cell) === "object" && cell.ct;
+    if ((isRealNull(cell) || ((getObjType(cell) === "string" || getObjType(cell) === "number") && cell === v)) && !hasCt) {
         cell = {};
+    }
+    // 如果 cell 被重置为 {} 但原对象有 ct，则恢复
+    if (hasCt && cell && !cell.ct) {
+        cell.ct = hasCt;
     }
 
     let vupdateStr = vupdate.toString();
@@ -89,7 +117,6 @@ function setcellvalue(r, c, d, v) {
         cell.m = vupdate;
     } else if (valueIsError(vupdate)) {
         cell.m = vupdateStr;
-        // cell.ct = { "fa": "General", "t": "e" };
         if (cell.ct != null) {
             cell.ct.t = "e";
         } else {
@@ -103,41 +130,27 @@ function setcellvalue(r, c, d, v) {
             !/^\d{6}(18|19|20)?\d{2}(0[1-9]|1[12])(0[1-9]|[12]\d|3[01])\d{3}(\d|X)$/i.test(vupdate)
         ) {
             cell.v = parseFloat(vupdate);
+            // 若当前无格式或格式为 General，则应用默认数字格式
+            if (cell.ct == null || cell.ct.fa === "General") {
+                // 从配置读取保留小数位数（默认 2）
+                const accuracy = (luckysheetConfigsetting.accuracy !== undefined) 
+                                ? parseInt(luckysheetConfigsetting.accuracy, 10) 
+                                : 2;
+                // 构造格式字符串，例如 "0.00"
+                const fmt = "0." + "0".repeat(Math.max(0, accuracy));
+                cell.ct = { fa: fmt, t: "n" };
+            }
+            
+            // 使用当前格式生成显示值（若格式变化，会触发银行家舍入）
+            let v_p = Math.round(cell.v * 1000000000) / 1000000000;
             if (cell.ct == null) {
-                cell.ct = { fa: "General", t: "n" };
-            }
-
-            if (cell.v == Infinity || cell.v == -Infinity) {
-                cell.m = cell.v.toString();
+                let mask = genarate(v_p);
+                cell.m = mask[0].toString();
             } else {
-                if (cell.v.toString().indexOf("e") > -1) {
-                    let len;
-                    if (cell.v.toString().split(".").length == 1) {
-                        len = 0;
-                    } else {
-                        len = cell.v
-                            .toString()
-                            .split(".")[1]
-                            .split("e")[0].length;
-                    }
-                    if (len > 5) {
-                        len = 5;
-                    }
-
-                    cell.m = cell.v.toExponential(len).toString();
-                } else {
-                    let v_p = Math.round(cell.v * 1000000000) / 1000000000;
-                    if (cell.ct == null) {
-                        let mask = genarate(v_p);
-                        cell.m = mask[0].toString();
-                    } else {
-                        let mask = update(cell.ct.fa, v_p);
-                        cell.m = mask.toString();
-                    }
-
-                    // cell.m = mask[0].toString();
-                }
+                let mask = update(cell.ct.fa, v_p);
+                cell.m = mask.toString();
             }
+
         } else if (cell.ct != null && cell.ct.fa == "@") {
             cell.m = vupdateStr;
             cell.v = vupdate;
@@ -145,13 +158,10 @@ function setcellvalue(r, c, d, v) {
             if (isRealNum(vupdate)) {
                 vupdate = parseFloat(vupdate);
             }
-
             let mask = update(cell.ct.fa, vupdate);
-
             if (mask === vupdate) {
                 //若原来单元格格式 应用不了 要更新的值，则获取更新值的 格式
                 mask = genarate(vupdate);
-
                 cell.m = mask[0].toString();
                 cell.ct = mask[1];
                 cell.v = mask[2];
@@ -166,7 +176,6 @@ function setcellvalue(r, c, d, v) {
             ) {
                 if (typeof vupdate === "string") {
                     let flag = vupdate.split("").every((ele) => ele == "0" || ele == ".");
-
                     // 1.1111111111111111 as an example, numbers within 18 characters need to be converted to numbers
                     if (flag || vupdate.length < 18) {
                         vupdate = parseFloat(vupdate);
