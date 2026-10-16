@@ -402,7 +402,7 @@ const luckysheetDropCell = {
                     let cell = Store.flowdata[r][c];
 
                     if(getObjType(cell) == "object" && cell["v"] != null && cell["f"] == null){
-                        if(cell["ct"] != null && cell["ct"].t == "n"){
+                        if(cell["ct"] != null && (cell["ct"].t == "n" || cell.ct.t == "g" && typeof cell.v == "number" && Number.isFinite(cell.v))){
                             hasNumber = true;
                         }
                         else if(cell["ct"] != null && cell["ct"].t == "d"){
@@ -927,7 +927,7 @@ const luckysheetDropCell = {
                 //单元格值类型
                 let str;
                 if(!!data && !!data["v"] && data["f"] == null){
-                    if(!!data["ct"] && data["ct"]["t"] == "n"){
+                    if(!!data["ct"] && (data["ct"]["t"] == "n" || data.ct.t == "g" && typeof data.v == "number" && Number.isFinite(data.v))){
                         str = "number";
                         extendNumberBeforeStr = null;
                         extendNumberAfterStr = null;
