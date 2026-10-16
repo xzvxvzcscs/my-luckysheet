@@ -1415,7 +1415,7 @@ const luckysheetformula = {
                     _this.cancelNormalSelected();
                     return;
                 }
-            } else if (curv != null && curv.qp != 1 && !dropdownRule) {
+            } else if (curv != null && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
                 if (getObjType(curv) == "object" && (value == curv.f || value == curv.v || value == curv.m)) {
                     _this.cancelNormalSelected();
                     return;
@@ -3580,9 +3580,17 @@ const luckysheetformula = {
                 value = _this.functionHTMLGenerate(value);
                 value1 = _this.functionHTMLGenerate(value1txt);
 
+                let caretOffset = null;
                 if (window.getSelection) {
                     // all browsers, except IE before version 9
                     let currSelection = window.getSelection();
+                    // 删除字符后按实际文本位置记录光标，避免公式分段变化导致旧索引失效。
+                    if ((kcode == 8 || kcode == 46) && currSelection.rangeCount && $editer.get(0).contains(currSelection.anchorNode)) {
+                        const caretRange = document.createRange();
+                        caretRange.selectNodeContents($editer.get(0));
+                        caretRange.setEnd(currSelection.anchorNode, currSelection.anchorOffset);
+                        caretOffset = caretRange.toString().length;
+                    }
                     if ($(currSelection.anchorNode).is("div")) {
                         let editorlen = $("#luckysheet-rich-text-editor span").length;
                         _this.functionRangeIndex = [
@@ -3607,7 +3615,29 @@ const luckysheetformula = {
                 }
 
                 $editer.html(value);
-                _this.functionRange($editer, value, value1);
+                if (caretOffset !== null) {
+                    // 高亮重建后重新定位文本节点，不移动到整条公式的开头或末尾。
+                    const editor = $editer.get(0);
+                    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+                    let textNode = walker.nextNode();
+                    let remainingOffset = caretOffset;
+                    while (textNode) {
+                        const textLength = textNode.textContent.length;
+                        if (remainingOffset <= textLength) {
+                            const caretRange = document.createRange();
+                            caretRange.setStart(textNode, remainingOffset);
+                            caretRange.collapse(true);
+                            const selection = window.getSelection();
+                            selection.removeAllRanges();
+                            selection.addRange(caretRange);
+                            break;
+                        }
+                        remainingOffset -= textLength;
+                        textNode = walker.nextNode();
+                    }
+                } else {
+                    _this.functionRange($editer, value, value1);
+                }
                 _this.canceFunctionrangeSelected();
 
                 if (kcode != 46) {
