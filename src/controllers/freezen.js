@@ -1752,8 +1752,8 @@ const luckysheetFreezen = {
         const column_focus = select_save["column_focus"] == null ? select_save["column"][0] : select_save["column_focus"];
 
         const range = {
-            row_focus: focus.row_focus || row_focus,
-            column_focus: focus.column_focus || column_focus
+            row_focus: focus.row_focus == null ? row_focus : focus.row_focus,
+            column_focus: focus.column_focus == null ? column_focus : focus.column_focus
         }
 
         const frozen = {
