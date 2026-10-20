@@ -15,6 +15,7 @@ import { getCellTextSplitArr, getCellTextInfo } from "../global/getRowlen";
 import { getcellvalue, getcellFormula, getInlineStringNoStyle, getOrigincell } from "./getdata";
 import { setcellvalue } from "./setdata";
 import { genarate, valueShowEs } from "./format";
+import func_methods from "./func_methods";
 import editor from "./editor";
 import tooltip from "./tooltip";
 import { rowLocation, colLocation, colLocationByIndex, mouseposition } from "./location";
@@ -439,8 +440,9 @@ const luckysheetformula = {
         if (range.length == 1) {
             //一行
             for (let c = 0; c < range[0].length; c++) {
-                if (range[0][c] != null && range[0][c].v) {
-                    rangeNow.push(range[0][c].v);
+                let value = func_methods.getCellValue(range[0][c]);
+                if (value) {
+                    rangeNow.push(value);
                     let f = range[0][c].ct?.fa;
                     fmt = fmt == "General" ? f : fmt;
                 } else {
@@ -451,8 +453,9 @@ const luckysheetformula = {
         } else if (range[0].length == 1) {
             //一列
             for (let r = 0; r < range.length; r++) {
-                if (range[r][0] != null && range[r][0].v) {
-                    rangeNow.push(range[r][0].v);
+                let value = func_methods.getCellValue(range[r][0]);
+                if (value) {
+                    rangeNow.push(value);
                     let f = range[r][0].ct?.fa;
                     fmt = fmt == "General" ? f : fmt;
                 } else {
@@ -462,8 +465,9 @@ const luckysheetformula = {
         } else {
             for (let r = 0; r < range.length; r++) {
                 for (let c = 0; c < range[r].length; c++) {
-                    if (range[r][c] != null && range[r][c].v) {
-                        rangeNow.push(range[r][c].v);
+                    let value = func_methods.getCellValue(range[r][c]);
+                    if (value) {
+                        rangeNow.push(value);
                         let f = range[r][c].ct?.fa;
                         fmt = fmt == "General" ? f : fmt;
                     } else {

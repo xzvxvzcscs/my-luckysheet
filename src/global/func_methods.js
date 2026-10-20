@@ -16,6 +16,15 @@ const error = {
 }
 
 const func_methods = {
+    getCellValue: function(cell){
+        if(cell == null) return undefined;
+        if(cell.v !== undefined) return cell.v;
+        // 导入的富文本可能只有文本片段，公式取值时拼接内容，不改写原有样式。
+        if(cell.ct && cell.ct.t === "inlineStr" && Array.isArray(cell.ct.s)){
+            return cell.ct.s.map(textRun => textRun && textRun.v != null ? textRun.v : "").join("");
+        }
+        return undefined;
+    },
     //单元格数据生成一维数组
     getCellDataArr: function(rangeObj, nullCellType, isNeglectNullCell){
         let dataArr = [];
