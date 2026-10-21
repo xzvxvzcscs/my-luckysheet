@@ -4056,6 +4056,73 @@ const functionImplementation = {
             return [formula.error.v, err];
         }
     },
+    "ROUNDBANK": function() {
+        // 必要参数个数错误检测
+        if (arguments.length < this.m[0] || arguments.length > this.m[1]) {
+            return formula.error.na;
+        }
+
+        // 参数类型错误检测
+        for (var i = 0; i < arguments.length; i++) {
+            var p = formula.errorParamCheck(this.p, arguments[i], i);
+            if (!p[0]) {
+                return formula.error.v;
+            }
+        }
+
+        try {
+            // 要舍入的数字
+            var number = func_methods.getFirstValue(arguments[0]);
+            if (valueIsError(number)) {
+                return number;
+            }
+            if (!isRealNum(number)) {
+                return formula.error.v;
+            }
+            number = parseFloat(number);
+
+            // 小数位数（默认 0）
+            var num_digits = 0;
+            if (arguments.length >= 2) {
+                num_digits = func_methods.getFirstValue(arguments[1]);
+                if (valueIsError(num_digits)) {
+                    return num_digits;
+                }
+                if (!isRealNum(num_digits)) {
+                    return formula.error.v;
+                }
+                num_digits = parseInt(num_digits);
+            }
+
+            // 处理缩放因子（支持负数位，如 -1 舍入到十位）
+            var factor = Math.pow(10, num_digits);
+            var scaled = number * factor;
+            var absScaled = Math.abs(scaled);
+            var integerPart = Math.floor(absScaled);
+            var fractional = absScaled - integerPart;
+
+            var roundedAbs;
+            if (fractional === 0.5) {
+                // 五成双：看整数部分的奇偶性
+                if (integerPart % 2 === 0) {
+                    roundedAbs = integerPart;      // 偶数舍
+                } else {
+                    roundedAbs = integerPart + 1;  // 奇数入
+                }
+            } else {
+                roundedAbs = Math.round(absScaled); // 普通四舍五入
+            }
+
+            // 恢复符号
+            var result = (number < 0) ? -roundedAbs : roundedAbs;
+            return result / factor;
+        }
+        catch (e) {
+            var err = e;
+            err = formula.errorInfo(err);
+            return [formula.error.v, err];
+        }
+    },
     "SERIESSUM": function() {
         //必要参数个数错误检测
         if (arguments.length < this.m[0] || arguments.length > this.m[1]) {
@@ -11057,6 +11124,12 @@ const functionImplementation = {
                 return formula.error.na;
             }
 
+            // 下拉来源的精确匹配保留完整显示值和空白行位置，索引取值继续使用原生逻辑。
+            if (match_type === 0 && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                const matchedIndex = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], data_lookup_array, Store.luckysheetfile, data_lookup_array.rowl == 1 ? 'row' : 'column');
+                if (matchedIndex !== undefined) return matchedIndex < 0 ? formula.error.na : matchedIndex + 1;
+            }
+
             //计算
             var index;
             var indexValue;
@@ -11249,6 +11322,11 @@ const functionImplementation = {
                 }
             }
             else{
+                // 仅对业务钩子识别的下拉来源使用显示值匹配，普通精确查找沿用原生规则。
+                if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                    const matchedRow = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], data_table_array, Store.luckysheetfile);
+                    if (matchedRow !== undefined) return matchedRow < 0 ? formula.error.na : table_array[matchedRow][col_index_num - 1];
+                }
                 var index = null;
 
                 for(var r = 0; r < table_array.length; r++){
@@ -11288,6 +11366,18 @@ const functionImplementation = {
         }
 
         try {
+            // 横向下拉关联也按完整显示值精确匹配，其他参数及近似查找仍走原生路径。
+            if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownLookupIndex === 'function') {
+                var lookupMode = arguments.length === 3 ? false : func_methods.getCellBoolen(arguments[3]);
+                if (lookupMode === false) {
+                    var lookupRange = arguments[1];
+                    var lookupRow = Number(func_methods.getFirstValue(arguments[2]));
+                    if (lookupRange && lookupRange.startCell && Number.isInteger(lookupRow) && lookupRow > 0 && lookupRow <= Number(lookupRange.rowl)) {
+                        const matchedIndex = luckysheetConfigsetting.hook.dropdownLookupIndex(arguments[0], lookupRange, Store.luckysheetfile, 'row');
+                        if (matchedIndex !== undefined) return matchedIndex < 0 ? formula.error.na : getcellvalue(lookupRow - 1, matchedIndex, lookupRange.data);
+                    }
+                }
+            }
             var cell_r = window.luckysheetCurrentRow;
             var cell_c = window.luckysheetCurrentColumn;
             var searchkey = arguments[0];

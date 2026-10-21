@@ -2,7 +2,7 @@ import Store from '../store';
 import { computeRowlenByContent,computeColWidthByContent } from './getRowlen';
 import luckysheetConfigsetting from '../controllers/luckysheetConfigsetting';
 
-export default function rhchInit(rowheight, colwidth) {
+export default function rhchInit(rowheight, colwidth, gridData = Store.flowdata) {
     zoomSetting();//Zoom sheet on first load
     //行高
     if(rowheight != null){
@@ -23,7 +23,7 @@ export default function rhchInit(rowheight, colwidth) {
 
             // 自动行高计算
             if (rowlen === 'auto') {
-                rowlen = computeRowlenByContent(Store.flowdata, r);
+                rowlen = computeRowlenByContent(gridData, r);
             }
             Store.rh_height += Math.round((rowlen + 1) * Store.zoomRatio);
 
@@ -53,7 +53,7 @@ export default function rhchInit(rowheight, colwidth) {
                 firstcolumnlen = Store.config["columnlen"][c];
             }
             else {
-                if (Store.flowdata[0] != null && Store.flowdata[0][c] != null) {
+                if (gridData[0] != null && gridData[0][c] != null) {
                     if (firstcolumnlen > 300) {
                         firstcolumnlen = 300;
                     }
@@ -78,7 +78,7 @@ export default function rhchInit(rowheight, colwidth) {
 
             // 自动行高计算
             if (firstcolumnlen === 'auto') {
-                firstcolumnlen = computeColWidthByContent(Store.flowdata, c, rowheight);
+                firstcolumnlen = computeColWidthByContent(gridData, c, rowheight);
             }
             Store.ch_width += Math.round((firstcolumnlen + 1)*Store.zoomRatio);
 

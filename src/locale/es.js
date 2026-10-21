@@ -538,6 +538,20 @@ export default {
                 }
             ]
         },
+        "ROUNDBANK": {
+            d: "将数字舍入到指定的位数，遵循银行家舍入法（四舍六入五成双）。",
+            a: "使用银行家舍入法将数字四舍五入。",
+            p: [
+                {
+                    name: "值",
+                    detail: "要舍入的数字。",
+                },
+                {
+                    name: "位数",
+                    detail: "要进行舍入运算的位数。位数可以取负值，在这种情况下会将值的小数点左侧部分舍入到指定的位数。",
+                },
+            ],
+        },
         "SERIESSUM": {
             "d": "Given parameters `x`, `n`, `m`, and `a`, returns the power series sum a",
             "a": "Sum of a power series.",
@@ -762,7 +776,7 @@ export default {
                 },
                 {
                     "name": "cumulative",
-                    "detail": "Determine the logical value of the function form. \n\nIf cumulative is TRUE(), HYPGEOM.DIST returns the cumulative distribution function;\n\nif FALSE(), it returns the probability density function."
+                    "detail": "Determine the logical value of the function form.\n\nIf cumulative is TRUE(), HYPGEOM.DIST returns the cumulative distribution function;\n\nif FALSE(), it returns the probability density function."
                 }
             ]
         },

@@ -96,15 +96,28 @@ function rowlenByRange(d, r1, r2, cfg) {
     return cfg_clone;
 }
 
+let autoSizeContext;
+
+function getAutoSizeContext() {
+    // 初始化时画布节点尚未创建，自动行高和列宽共用离屏画布完成文字测量。
+    const canvas = $("#luckysheetTableContent").get(0);
+    if (canvas) return canvas.getContext("2d");
+    if (!autoSizeContext) autoSizeContext = document.createElement("canvas").getContext("2d");
+    return autoSizeContext;
+}
+
 //根据内容计算行高
 function computeRowlenByContent(d, r) {
+    const row = Array.isArray(d) ? d[r] : null;
+    // 选区可能超出已有数据，空占位行沿用默认行高，避免读取不存在的行。
+    if (!Array.isArray(row)) return Store.defaultrowlen;
     let currentRowLen = 0;
 
-    let canvas = $("#luckysheetTableContent").get(0).getContext("2d");
+    let canvas = getAutoSizeContext();
     canvas.textBaseline = 'top'; //textBaseline以top计算
 
-    for(let c = 0; c < d[r].length; c++){
-        let cell = d[r][c];
+    for(let c = 0; c < row.length; c++){
+        let cell = row[c];
 
         if (cell == null) {
             continue;
@@ -157,13 +170,13 @@ function computeCellWidth(cell, col_index) {
 
 function computeColWidthByContent(d, c, rh) {
     let currentColLen = 0;
-    let rowlenArr = computeRowlenArr(rh, c)
+    let rowlenArr = computeRowlenArr(rh, Store.config)
 
-    let canvas = $("#luckysheetTableContent").get(0).getContext("2d");
+    let canvas = getAutoSizeContext();
     canvas.textBaseline = 'top'; //textBaseline以top计算
 
     for (var i = 0; i < d.length; i++) {
-        var cell = d[i][c]
+        var cell = d[i] && d[i][c]
 
         if (cell != null && (cell.v != null || isInlineStringCell(cell))) {
             let cellHeight = rowlenArr[c];

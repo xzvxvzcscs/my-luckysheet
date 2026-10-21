@@ -1050,7 +1050,9 @@ const sheetmanage = {
                             let otherfile = Store.luckysheetfile[_this.getSheetIndex(item)];
 
                             if (otherfile["load"] == null || otherfile["load"] == "0") {
-                                otherfile.celldata = dataset[item.toString()];
+                                let celldata = Array.isArray(dataset[item.toString()]) ? dataset[item.toString()] : dataset[item.toString()].celldata;
+                                otherfile.celldata = celldata;
+                                otherfile.calcChain = dataset[item.toString()].calcChain || [];
                                 otherfile["data"] = _this.buildGridData(otherfile);
                                 otherfile["load"] = "1";
                             }
@@ -1321,9 +1323,9 @@ const sheetmanage = {
             _this.showSheet();
 
             setTimeout(function() {
-                formula.execFunctionGroupForce(true);
+                formula.execFunctionGroupForce(luckysheetConfigsetting.forceCalculation);
                 luckysheetrefreshgrid();
-                server.saveParam("shs", null, Store.currentSheetIndex);
+                server.saveParam("shs", null, index);
             }, 1);
         } else {
             let loadSheetUrl = server.loadSheetUrl;
@@ -1375,11 +1377,12 @@ const sheetmanage = {
             } else {
                 $("#luckysheet-grid-window-1").append(luckysheetlodingHTML());
 
-                let sheetindex = _this.checkLoadSheetIndex(file);
-
+                let sheetindex = _this.checkLoadSheetIndex(file); 
                 $.post(loadSheetUrl, { gridKey: server.gridKey, index: sheetindex.join(",") }, function(d) {
                     let dataset = new Function("return " + d)();
-                    file.celldata = dataset[index.toString()];
+                    let celldataV1 = Array.isArray(dataset[index.toString()]) ? dataset[index.toString()] : dataset[index.toString()].celldata;
+                    file.celldata = celldataV1;
+                    file.calcChain = dataset[index.toString()].calcChain || [];
                     let data = _this.buildGridData(file);
 
                     setTimeout(function() {
@@ -1394,7 +1397,9 @@ const sheetmanage = {
                         let otherfile = Store.luckysheetfile[_this.getSheetIndex(item)];
 
                         if (otherfile["load"] == null || otherfile["load"] == "0") {
-                            otherfile.celldata = dataset[item.toString()];
+                            let celldataV2 = Array.isArray(dataset[item.toString()]) ? dataset[item.toString()] : dataset[item.toString()].celldata;
+                            otherfile.celldata = celldataV2;
+                            otherfile.calcChain = dataset[item.toString()].calcChain || [];
                             otherfile["data"] = _this.buildGridData(otherfile);
                             otherfile["load"] = "1";
                         }
@@ -1405,7 +1410,7 @@ const sheetmanage = {
                     _this.mergeCalculation(index);
                     _this.setSheetParam();
                     _this.showSheet();
-
+                    method.createHookFunction("getLoadSheetFunc", { sheet: file });
                     setTimeout(function() {
                         _this.restoreCache();
                         formula.execFunctionGroupForce(luckysheetConfigsetting.forceCalculation);
@@ -1557,6 +1562,7 @@ const sheetmanage = {
                         formula.addToCellList(formulaTxt, str);
                         if (str.indexOf("!") > -1) {
                             let name = str.substr(0, str.indexOf("!"));
+                            name = name.replace(/\\/g, "").replace(/'/g, "");
                             // dataNameList[name] = true;
 
                             let sheet = this.getSheetByName(name);

@@ -300,7 +300,7 @@ const luckysheetFreezen = {
             
             let column_px = Store.visibledatacolumn[column], freezen_px = Store.visibledatacolumn[freezen_colindex];
 
-            if (column_px <= freezen_px+top) {
+            if (column_px <= freezen_px) {
                 setTimeout(function () { $("#luckysheet-scrollbar-x").scrollLeft(0); }, 100);
             }
         }
@@ -324,7 +324,7 @@ const luckysheetFreezen = {
 
             let row_px = Store.visibledatarow[row], freezen_px = Store.visibledatarow[freezen_rowindex];
 
-            if (row_px <= freezen_px+left) {
+            if (row_px <= freezen_px) {
                 setTimeout(function () {$("#luckysheet-scrollbar-y").scrollTop(0);}, 100);
             }
         }
@@ -1752,8 +1752,8 @@ const luckysheetFreezen = {
         const column_focus = select_save["column_focus"] == null ? select_save["column"][0] : select_save["column_focus"];
 
         const range = {
-            row_focus: focus.row_focus || row_focus,
-            column_focus: focus.column_focus || column_focus
+            row_focus: focus.row_focus == null ? row_focus : focus.row_focus,
+            column_focus: focus.column_focus == null ? column_focus : focus.column_focus
         }
 
         const frozen = {

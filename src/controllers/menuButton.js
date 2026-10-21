@@ -32,6 +32,7 @@ import { countfunc } from "../global/count";
 import { hideMenuByCancel } from "../global/cursorPos";
 import { getSheetIndex, getRangetxt, getluckysheetfile } from "../methods/get";
 import { setluckysheetfile } from "../methods/set";
+import cellTypeMap from '../assets/cellType.json';
 import {
     isInlineStringCell,
     isInlineStringCT,
@@ -533,8 +534,23 @@ const menuButton = {
                 //luckysheet-icon-fmt-other-menuButton_sub
                 $("body").append(menu + submenu);
                 $menuButton = $("#" + menuButtonId).width(250);
-                _this.focus($menuButton);
-
+                // 获取当前焦点单元格的格式
+                let formatValue = null;
+                if (Store.luckysheet_select_save && Store.luckysheet_select_save.length > 0) {
+                    let row_index = Store.luckysheet_select_save[0]["row_focus"];
+                    let col_index = Store.luckysheet_select_save[0]["column_focus"];
+                    if (row_index != null && col_index != null) {
+                        let foucsStatus = _this.checkstatus(Store.flowdata, row_index, col_index, "ct");
+                        if (foucsStatus && foucsStatus.fa) {
+                            // 确保该格式存在于预定义菜单项中，避免找不到对应 item 而不勾选
+                            const exists = locale_defaultFmt.some(f => f.value === foucsStatus.fa);
+                            if (exists) {
+                                formatValue = foucsStatus.fa;
+                            }
+                        }
+                    }
+                }
+                _this.focus($menuButton, formatValue);
                 $menuButton.find(".luckysheet-cols-menuitem").click(function() {
                     $menuButton.hide();
                     luckysheetContainerFocus();
@@ -2172,13 +2188,40 @@ const menuButton = {
 
                     let $t = $(this),
                         itemvalue = $t.attr("itemvalue");
+                    let range;
+                    if (["freezenRowRange", "freezenColumnRange", "freezenRCRange"].includes(itemvalue)) {
+                        if (Store.luckysheet_select_save == null || Store.luckysheet_select_save.length == 0) {
+                            if (isEditMode()) {
+                                alert(locale_freezen.noSeletionError);
+                            } else {
+                                tooltip.info(locale_freezen.noSeletionError, "");
+                            }
+                            return;
+                        }
+
+                        const last = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1];
+                        // 整列、整行选区在另一方向沿用原边界，避免冻结整张表。
+                        const rowEnd = last.column_select ? Math.max((last.row_focus == null ? last.row[0] : last.row_focus) - 1, 0) : last.row[1];
+                        const columnEnd = last.row_select ? Math.max((last.column_focus == null ? last.column[0] : last.column_focus) - 1, 0) : last.column[1];
+                        range = {
+                            row_focus: Math.max(luckysheet_searcharray(Store.visibledatarow, $("#luckysheet-cell-main").scrollTop()) - 1, rowEnd, 0),
+                            column_focus: Math.max(luckysheet_searcharray(Store.visibledatacolumn, $("#luckysheet-cell-main").scrollLeft()) - 1, columnEnd, 0),
+                        };
+                        if (
+                            luckysheetFreezen.freezenRealFirstRowColumn &&
+                            ((itemvalue != "freezenColumnRange" && Store.visibledatarow[range.row_focus] - 2 + Store.columnHeaderHeight > $("#luckysheet-cell-main").height()) ||
+                                (itemvalue != "freezenRowRange" && Store.visibledatacolumn[range.column_focus] - 2 + Store.rowHeaderWidth > $("#luckysheet-cell-main").width()))
+                        ) {
+                            return tooltip.info(locale_freezen.rangeRCOverErrorTitle, locale_freezen.rangeRCOverError);
+                        }
+                    }
                     _this.focus($menuButton, itemvalue);
                     if (itemvalue === "freezenCancel") {
                         $menuButton.find(".fa.fa-check").remove();
                     }
 
                     // store frozen
-                    luckysheetFreezen.saveFrozen(itemvalue);
+                    luckysheetFreezen.saveFrozen(itemvalue, undefined, range);
 
                     if (itemvalue == "freezenRow") {
                         //首行冻结
@@ -2289,30 +2332,8 @@ const menuButton = {
                         luckysheetrefreshgrid();
                     } else if (itemvalue == "freezenRowRange") {
                         //选区行冻结
-
-                        if (Store.luckysheet_select_save == null || Store.luckysheet_select_save.length == 0) {
-                            if (isEditMode()) {
-                                alert(locale_freezen.noSeletionError);
-                            } else {
-                                tooltip.info(locale_freezen.noSeletionError, "");
-                            }
-
-                            return;
-                        }
-                        // 固定超出屏幕范围
-                        let rangeTop = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1].top;
-                        if (
-                            luckysheetFreezen.freezenRealFirstRowColumn &&
-                            rangeTop > $("#luckysheet-cell-main").height()
-                        ) {
-                            return tooltip.info(locale_freezen.rangeRCOverErrorTitle, locale_freezen.rangeRCOverError);
-                        }
                         let scrollTop = $("#luckysheet-cell-main").scrollTop();
-                        let row_st = luckysheet_searcharray(Store.visibledatarow, scrollTop);
-
-                        let last = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1];
-                        let row_focus = last["row_focus"] == null ? last["row"][0] : last["row_focus"];
-                        row_st = Math.max(row_st - 1, row_focus - 1, 0);
+                        let row_st = range.row_focus;
 
                         let top, freezenhorizontaldata;
                         if (luckysheetFreezen.freezenRealFirstRowColumn) {
@@ -2347,29 +2368,8 @@ const menuButton = {
                         luckysheetrefreshgrid();
                     } else if (itemvalue == "freezenColumnRange") {
                         //选区列冻结
-                        if (Store.luckysheet_select_save == null || Store.luckysheet_select_save.length == 0) {
-                            if (isEditMode()) {
-                                alert(locale_freezen.noSeletionError);
-                            } else {
-                                tooltip.info(locale_freezen.noSeletionError, "");
-                            }
-
-                            return;
-                        }
-                        // 固定超出屏幕范围
-                        let rangeLeft = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1].left;
-                        if (
-                            luckysheetFreezen.freezenRealFirstRowColumn &&
-                            rangeLeft > $("#luckysheet-cell-main").width()
-                        ) {
-                            return tooltip.info(locale_freezen.rangeRCOverErrorTitle, locale_freezen.rangeRCOverError);
-                        }
                         let scrollLeft = $("#luckysheet-cell-main").scrollLeft();
-                        let col_st = luckysheet_searcharray(Store.visibledatacolumn, scrollLeft);
-
-                        let last = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1];
-                        let column_focus = last["column_focus"] == null ? last["column"][0] : last["column_focus"];
-                        col_st = Math.max(col_st - 1, column_focus - 1, 0);
+                        let col_st = range.column_focus;
 
                         let left, freezenverticaldata;
                         if (luckysheetFreezen.freezenRealFirstRowColumn) {
@@ -2404,33 +2404,8 @@ const menuButton = {
                         luckysheetrefreshgrid();
                     } else if (itemvalue == "freezenRCRange") {
                         //选区行列冻结
-                        if (Store.luckysheet_select_save == null || Store.luckysheet_select_save.length == 0) {
-                            if (isEditMode()) {
-                                alert(locale_freezen.noSeletionError);
-                            } else {
-                                tooltip.info(locale_freezen.noSeletionError, "");
-                            }
-
-                            return;
-                        }
-
-                        // 固定超出屏幕范围
-                        let rangeTop = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1].top;
-                        let rangeLeft = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1].left;
-                        if (
-                            luckysheetFreezen.freezenRealFirstRowColumn &&
-                            (rangeTop > $("#luckysheet-cell-main").height() ||
-                                rangeLeft > $("#luckysheet-cell-main").width())
-                        ) {
-                            return tooltip.info(locale_freezen.rangeRCOverErrorTitle, locale_freezen.rangeRCOverError);
-                        }
-
                         let scrollTop = $("#luckysheet-cell-main").scrollTop();
-                        let row_st = luckysheet_searcharray(Store.visibledatarow, scrollTop);
-
-                        let last = Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1];
-                        let row_focus = last["row_focus"] == null ? last["row"][0] : last["row_focus"];
-                        row_st = Math.max(row_st - 1, row_focus - 1, 0);
+                        let row_st = range.row_focus;
 
                         let top, freezenhorizontaldata;
                         if (luckysheetFreezen.freezenRealFirstRowColumn) {
@@ -2458,10 +2433,7 @@ const menuButton = {
                         luckysheetFreezen.createFreezenHorizontal(freezenhorizontaldata, top);
 
                         let scrollLeft = $("#luckysheet-cell-main").scrollLeft();
-                        let col_st = luckysheet_searcharray(Store.visibledatacolumn, scrollLeft);
-
-                        let column_focus = last["column_focus"] == null ? last["column"][0] : last["column_focus"];
-                        col_st = Math.max(col_st - 1, column_focus - 1, 0);
+                        let col_st = range.column_focus;
 
                         let left, freezenverticaldata;
                         if (luckysheetFreezen.freezenRealFirstRowColumn) {
@@ -3768,64 +3740,116 @@ const menuButton = {
         return [style, color];
     },
     updateFormatCell: function(d, attr, foucsStatus, row_st, row_ed, col_st, col_ed) {
-        if (d == null || attr == null) {
-            return;
-        }
+        if (d == null || attr == null) return;
+
         if (attr == "ct") {
+            foucsStatus = String(foucsStatus);
+    
             for (let r = row_st; r <= row_ed; r++) {
-                if (Store.config["rowhidden"] != null && Store.config["rowhidden"][r] != null) {
-                    continue;
-                }
-
+                if (Store.config["rowhidden"] != null && Store.config["rowhidden"][r] != null) continue;
                 for (let c = col_st; c <= col_ed; c++) {
-                    let cell = d[r][c],
-                        value = null;
-
-                    if (getObjType(cell) == "object") {
-                        value = d[r][c]["v"];
-                    } else {
-                        value = d[r][c];
-                    }
-
-                    if (foucsStatus != "@" && isRealNum(value)) {
-                        value = parseFloat(value);
-                    }
-
-                    let mask = update(foucsStatus, value);
-                    let type = "n";
-
-                    if (
-                        is_date(foucsStatus) ||
-                        foucsStatus === 14 ||
-                        foucsStatus === 15 ||
-                        foucsStatus === 16 ||
-                        foucsStatus === 17 ||
-                        foucsStatus === 18 ||
-                        foucsStatus === 19 ||
-                        foucsStatus === 20 ||
-                        foucsStatus === 21 ||
-                        foucsStatus === 22 ||
-                        foucsStatus === 45 ||
-                        foucsStatus === 46 ||
-                        foucsStatus === 47
-                    ) {
-                        type = "d";
-                    } else if (foucsStatus == "@" || foucsStatus === 49) {
-                        type = "s";
-                    } else if (foucsStatus == "General" || foucsStatus === 0) {
-                        // type = "g";
-                        type = isRealNum(value) ? "n" : "g";
-                    }
-
-                    if (getObjType(cell) == "object") {
-                        d[r][c]["m"] = mask;
-                        if (d[r][c]["ct"] == null) {
-                            d[r][c]["ct"] = {};
+                    let cell = d[r][c];
+                    let isObj = getObjType(cell) === "object";
+                    let rawValue;
+                    let isInline = false;   // 标记是否为富文本
+    
+                    // ---- 1. 获取原始值（兼容富文本） ----
+                    if (isObj) {
+                        // 检测富文本结构
+                        if (cell.ct && Array.isArray(cell.ct.s) && cell.ct.s.length > 0) {
+                            isInline = true;
+                            // 拼接所有片段的 v
+                            rawValue = cell.ct.s.map(seg => seg.v || '').join('');
+                        } else {
+                            rawValue = cell.hasOwnProperty('v') ? cell.v : (cell.m !== undefined ? cell.m : undefined);
                         }
-                        d[r][c]["ct"]["fa"] = foucsStatus;
-                        d[r][c]["ct"]["t"] = type;
                     } else {
-                        d[r][c] = { ct: { fa: foucsStatus, t: type }, v: value, m: mask };
+                        rawValue = cell;
+                    }
+    
+                    // ---- 2. 空值处理 ----
+                    if (isRealNull(rawValue)) {
+                        // 确保 cell 是有效对象
+                        if (cell == null || typeof cell !== 'object') {
+                            cell = {};
+                            d[r][c] = cell;
+                            isObj = true;
+                        }
+                        cell.m = "";
+                        if (!cell.ct) cell.ct = {};
+                        cell.ct.fa = foucsStatus;
+
+                        // 根据格式类型决定 t
+                        let type = "g"; // 默认
+                        const faStr = String(foucsStatus);
+                        if (faStr === "General" || faStr === "0") {
+                            // General 或整数格式，空值显示为空，标记为通用
+                            type = "g";
+                        } else if (cellTypeMap.hasOwnProperty(faStr)) {
+                            const rawType = cellTypeMap[faStr];
+                            // 若映射值为 "g/n" 等复合类型，取 "g" 更安全
+                            type = (rawType === "g/n") ? "g" : rawType;
+                        }
+                        // 若未找到映射，保持默认 "g"
+                        cell.ct.t = type;
+
+                        // 如果是富文本，清除 s 数组
+                        if (cell.ct.s) delete cell.ct.s;
+                        continue;
+                    }
+    
+                    // ---- 3. 确定用于格式化的值 ----
+                    let isNum = isRealNum(rawValue);
+                    let displayValue = rawValue;
+                    if (isNum && foucsStatus !== "@" && foucsStatus !== "49" && foucsStatus !== "General" && foucsStatus !== "0") {
+                        displayValue = parseFloat(rawValue);
+                    }
+                    
+                    // ---- 4. 生成显示字符串 ----
+                    let mask = update(foucsStatus, displayValue);
+    
+                    // ---- 5. 确定类型 ----
+                    let type;
+                    if (is_date(foucsStatus) ||
+                        foucsStatus === "14" || foucsStatus === "15" || foucsStatus === "16" ||
+                        foucsStatus === "17" || foucsStatus === "18" || foucsStatus === "19" ||
+                        foucsStatus === "20" || foucsStatus === "21" || foucsStatus === "22" ||
+                        foucsStatus === "45" || foucsStatus === "46" || foucsStatus === "47") {
+                        type = "d";
+                    } else if (foucsStatus === "@" || foucsStatus === "49") {
+                        type = "s";
+                        mask = String(rawValue); // 强制显示原始文本
+                    } else if (foucsStatus === "General" || foucsStatus === "0") {
+                        type = isNum ? "n" : "g";
+                        if (!isNum) mask = String(rawValue);
+                    } else {
+                        type = isNum ? "n" : "g";
+                        if (!isNum) mask = String(rawValue);
+                    }
+    
+                    // ---- 6. 更新单元格（富文本转为普通对象） ----
+                    if (isObj) {
+                        if (isInline) {
+                            // 富文本 -> 普通对象：保留原始值作为 v，丢弃 s 数组
+                            let newCell = { v: rawValue, m: mask, ct: { fa: foucsStatus, t: type } };
+                            // 复制其他属性（如 bg, f, bl, it 等）
+                            for (let key in cell) {
+                                if (key !== 'ct' && key !== 'v' && key !== 'm') {
+                                    newCell[key] = cell[key];
+                                }
+                            }
+                            d[r][c] = newCell;
+                        } else {
+                            // 普通对象：只更新 m 和 ct
+                            cell.m = mask;
+                            if (!cell.ct) cell.ct = {};
+                            cell.ct.fa = foucsStatus;
+                            cell.ct.t = type;
+                            // 保留原 v
+                        }
+                    } else {
+                        // 简单类型 -> 转为对象
+                        d[r][c] = { v: rawValue, m: mask, ct: { fa: foucsStatus, t: type } };
                     }
                 }
             }
@@ -4919,6 +4943,15 @@ const menuButton = {
         let v = luckysheetformula.execfunction(f, r, c);
         let value = { v: v[1], f: v[2] };
         setcellvalue(r, c, d, value);
+        // 重新生成显示格式
+        let cell = d[r][c];
+        if (cell && typeof cell.v === 'number' && !isNaN(cell.v)) {
+            let gen = genarate(cell.v);
+            if (gen) {
+                cell.m = gen[0];
+                cell.ct = gen[1];
+            }
+        }
         luckysheetformula.execFunctionExist.push({ r: r, c: c, i: Store.currentSheetIndex });
 
         //刷新生成公式所在的单元格，刷新calcChain

@@ -15,6 +15,7 @@ import { getCellTextSplitArr, getCellTextInfo } from "../global/getRowlen";
 import { getcellvalue, getcellFormula, getInlineStringNoStyle, getOrigincell } from "./getdata";
 import { setcellvalue } from "./setdata";
 import { genarate, valueShowEs } from "./format";
+import func_methods from "./func_methods";
 import editor from "./editor";
 import tooltip from "./tooltip";
 import { rowLocation, colLocation, colLocationByIndex, mouseposition } from "./location";
@@ -36,6 +37,7 @@ import {
     luckysheet_getSpecialReference,
 } from "../function/func";
 import Store from "../store";
+import luckysheetConfigsetting from "../controllers/luckysheetConfigsetting";
 import locale from "../locale/locale";
 import json from "./json";
 import method from "./method";
@@ -369,7 +371,10 @@ const luckysheetformula = {
             } else if (cell.f != null) {
                 value = getcellvalue(r, c, d, "f");
             } else {
-                value = valueShowEs(r, c, d);
+                value = luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellEditValue === "function"
+                    ? luckysheetConfigsetting.hook.cellEditValue(cell)
+                    : null;
+                if (value == null) value = valueShowEs(r, c, d);
                 if (typeof value === "string") {
                     value = value.replace(/\</g, "&lt;").replace(/\>/g, "&gt;");
                 }
@@ -435,8 +440,9 @@ const luckysheetformula = {
         if (range.length == 1) {
             //一行
             for (let c = 0; c < range[0].length; c++) {
-                if (range[0][c] != null && range[0][c].v) {
-                    rangeNow.push(range[0][c].v);
+                let value = func_methods.getCellValue(range[0][c]);
+                if (value) {
+                    rangeNow.push(value);
                     let f = range[0][c].ct?.fa;
                     fmt = fmt == "General" ? f : fmt;
                 } else {
@@ -447,8 +453,9 @@ const luckysheetformula = {
         } else if (range[0].length == 1) {
             //一列
             for (let r = 0; r < range.length; r++) {
-                if (range[r][0] != null && range[r][0].v) {
-                    rangeNow.push(range[r][0].v);
+                let value = func_methods.getCellValue(range[r][0]);
+                if (value) {
+                    rangeNow.push(value);
                     let f = range[r][0].ct?.fa;
                     fmt = fmt == "General" ? f : fmt;
                 } else {
@@ -458,8 +465,9 @@ const luckysheetformula = {
         } else {
             for (let r = 0; r < range.length; r++) {
                 for (let c = 0; c < range[r].length; c++) {
-                    if (range[r][c] != null && range[r][c].v) {
-                        rangeNow.push(range[r][c].v);
+                    let value = func_methods.getCellValue(range[r][c]);
+                    if (value) {
+                        rangeNow.push(value);
                         let f = range[r][c].ct?.fa;
                         fmt = fmt == "General" ? f : fmt;
                     } else {
@@ -1304,7 +1312,7 @@ const luckysheetformula = {
                 opacity: "0.13",
             });
     },
-    updatecell: function(r, c, value, isRefresh = true) {
+    updatecell: function(r, c, value, isRefresh = true, dropdownText) {
         let _this = this;
 
         let $input = $("#luckysheet-rich-text-editor");
@@ -1315,15 +1323,29 @@ const luckysheetformula = {
             sheetmanage.changeSheetExec(_this.rangetosheet);
         }
 
+        let editRule = dataVerificationCtrl.dataVerification && dataVerificationCtrl.dataVerification[r + "_" + c];
+        if (editRule && editRule.type === "dropdown" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownCell === "function") {
+            const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+            const target = luckysheetConfigsetting.hook.dropdownCell({
+                data: Store.flowdata,
+                config: sheet.config,
+                dataVerification: sheet.dataVerification
+            }, r, c);
+            r = target.r;
+            c = target.c;
+            editRule = target.verification;
+        }
         if (!checkProtectionLocked(r, c, Store.currentSheetIndex)) {
             return;
         }
 
+        let dropdownRule = editRule;
+        dropdownRule = dropdownRule && dropdownRule.type === "dropdown" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === "function" ? dropdownRule : null;
         //数据验证 输入数据无效时禁止输入
         if (dataVerificationCtrl.dataVerification != null) {
             let dvItem = dataVerificationCtrl.dataVerification[r + "_" + c];
 
-            if (dvItem != null && dvItem.prohibitInput && !dataVerificationCtrl.validateCellData(inputText, dvItem)) {
+            if (dvItem != null && dvItem.prohibitInput && !dropdownRule && !dataVerificationCtrl.validateCellData(inputText, dvItem)) {
                 let failureText = dataVerificationCtrl.getFailureText(dvItem);
                 tooltip.info(failureText, "");
                 _this.cancelNormalSelected();
@@ -1336,6 +1358,8 @@ const luckysheetformula = {
         // Store old value for hook function
         const oldValue = JSON.stringify(curv);
 
+        // 下拉输入先在副本中格式化和计算，未匹配时保留原值、公式链及同步状态。
+        if (dropdownRule && getObjType(curv) === "object") curv = $.extend(true, {}, curv);
         let isPrevInline = isInlineStringCell(curv);
         let isCurInline = inputText.slice(0, 1) != "=" && inputHtml.substr(0, 5) == "<span";
 
@@ -1387,19 +1411,28 @@ const luckysheetformula = {
         value = value || $input.text();
 
         // Hook function
-        if (!method.createHookFunction("cellUpdateBefore", r, c, value, isRefresh)) {
+        if (!method.createHookFunction("cellUpdateBefore", r, c, value, isRefresh, !!dropdownRule)) {
             _this.cancelNormalSelected();
             return;
         }
 
+        // 原生编辑入口随后会把标量包装成对象，日期必须在此之前解析，依赖公式也使用转换后的序列。
+        let dateInput = null;
+        if (!isCurInline && !dropdownRule && typeof value === "string" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === "function") {
+            dateInput = luckysheetConfigsetting.hook.cellValueFormat(value, curv, true, r, c);
+            if (dateInput != null) value = dateInput.v;
+        }
+        // 未改动的公式仍允许重算缓存，但退出编辑时不应重新调整行高。
+        const sameFormula = getObjType(value) == "string" && getObjType(curv) == "object" && value === curv.f;
         if (!isCurInline) {
             if (isRealNull(value) && !isPrevInline) {
                 if (curv == null || (isRealNull(curv.v) && curv.spl == null && curv.f == null)) {
                     _this.cancelNormalSelected();
                     return;
                 }
-            } else if (curv != null && curv.qp != 1) {
-                if (getObjType(curv) == "object" && (value == curv.f || value == curv.v || value == curv.m)) {
+            } else if (curv != null && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
+                // 公式重新提交时仍需计算，日期覆盖公式时也不能沿用旧缓存值。
+                if (getObjType(curv) == "object" && (value == curv.f || (dateInput == null || curv.f == null) && (value == curv.v || value == curv.m))) {
                     _this.cancelNormalSelected();
                     return;
                 } else if (value == curv) {
@@ -1432,10 +1465,11 @@ const luckysheetformula = {
         let d = editor.deepCopyFlowData(Store.flowdata);
         let dynamicArrayItem = null; //动态数组
 
+        if (dropdownRule && getObjType(curv) === "object") d[r][c] = $.extend(true, {}, curv);
         if (getObjType(curv) == "object") {
             if (!isCurInline) {
                 if (getObjType(value) == "string" && value.slice(0, 1) == "=" && value.length > 1) {
-                    let v = _this.execfunction(value, r, c, undefined, true);
+                    let v = _this.execfunction(value, r, c, undefined, !dropdownRule, !!dropdownRule);
                     isRunExecFunction = false;
                     curv = $.extend(true, {}, d[r][c]);
                     curv.v = v[1];
@@ -1466,7 +1500,7 @@ const luckysheetformula = {
                         valueFunction.slice(0, 1) == "=" &&
                         valueFunction.length > 1
                     ) {
-                        let v = _this.execfunction(valueFunction, r, c, undefined, true);
+                        let v = _this.execfunction(valueFunction, r, c, undefined, !dropdownRule, !!dropdownRule);
                         isRunExecFunction = false;
                         // get v/m/ct
 
@@ -1529,8 +1563,10 @@ const luckysheetformula = {
                         // }
                     }
                 } else {
-                    _this.delFunctionGroup(r, c);
-                    _this.execFunctionGroup(r, c, value);
+                    if (!dropdownRule) {
+                        _this.delFunctionGroup(r, c);
+                        _this.execFunctionGroup(r, c, value);
+                    }
                     isRunExecFunction = false;
 
                     curv = $.extend(true, {}, d[r][c]);
@@ -1556,7 +1592,7 @@ const luckysheetformula = {
             value = curv;
         } else {
             if (getObjType(value) == "string" && value.slice(0, 1) == "=" && value.length > 1) {
-                let v = _this.execfunction(value, r, c, undefined, true);
+                let v = _this.execfunction(value, r, c, undefined, !dropdownRule, !!dropdownRule);
                 isRunExecFunction = false;
                 value = {
                     v: v[1],
@@ -1585,7 +1621,7 @@ const luckysheetformula = {
                     valueFunction.slice(0, 1) == "=" &&
                     valueFunction.length > 1
                 ) {
-                    let v = _this.execfunction(valueFunction, r, c, undefined, true);
+                    let v = _this.execfunction(valueFunction, r, c, undefined, !dropdownRule, !!dropdownRule);
                     isRunExecFunction = false;
                     // value = {
                     //     "v": v[1],
@@ -1615,14 +1651,43 @@ const luckysheetformula = {
                     }
                 }
             } else {
-                _this.delFunctionGroup(r, c);
-                _this.execFunctionGroup(r, c, value);
+                if (!dropdownRule) {
+                    _this.delFunctionGroup(r, c);
+                    _this.execFunctionGroup(r, c, value);
+                }
                 isRunExecFunction = false;
             }
         }
 
         // value maybe an object
         setcellvalue(r, c, d, value);
+        // 已选候选项必须保持完整显示文本，避免目标数值格式改写名称或前导零。
+        if (dropdownText !== undefined && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === "function" && !luckysheetConfigsetting.hook.dropdownValueMatch(d[r][c], [dropdownText], false)) {
+            const selectedCell = d[r][c];
+            delete selectedCell.f;
+            delete selectedCell.m;
+            delete selectedCell.spl;
+            selectedCell.ct = { fa: "@", t: "s" };
+            selectedCell.qp = 1;
+            setcellvalue(r, c, d, dropdownText);
+        }
+        if (dropdownRule) {
+            if ((dropdownRule.prohibitInput || dropdownText !== undefined) && !dataVerificationCtrl.validateCellData(undefined, dropdownRule, d[r][c])) {
+                tooltip.info(dataVerificationCtrl.getFailureText(dropdownRule), "");
+                _this.cancelNormalSelected();
+                return;
+            }
+            method.createHookFunction("cellUpdateAccepted", r, c, value, isRefresh, d[r][c]);
+            const pendingCell = d[r][c];
+            // 关联查找使用本轮格式化单元格，不能把显示值重新还原成无格式的原始数值。
+            if (pendingCell && pendingCell.f != null) {
+                _this.execFunctionGroup(r, c, pendingCell);
+                _this.insertUpdateFunctionGroup(r, c);
+            } else {
+                _this.delFunctionGroup(r, c);
+                _this.execFunctionGroup(r, c, pendingCell);
+            }
+        }
         _this.cancelNormalSelected();
 
         let RowlChange = false;
@@ -1633,8 +1698,8 @@ const luckysheetformula = {
 
         // 单元格行高自适应,只有在单元格不是合并单元格时才能生效
         if (
-            (d[r][c].tb == "2" && d[r][c].v != null) ||
-            (isInlineStringCell(d[r][c]) && typeof d[r][c]["mc"] == "undefined")
+            !sameFormula && ((d[r][c].tb == "2" && d[r][c].v != null) ||
+            (isInlineStringCell(d[r][c]) && typeof d[r][c]["mc"] == "undefined"))
         ) {
             //自动换行
             let defaultrowlen = Store.defaultrowlen;
@@ -3531,9 +3596,17 @@ const luckysheetformula = {
                 value = _this.functionHTMLGenerate(value);
                 value1 = _this.functionHTMLGenerate(value1txt);
 
+                let caretOffset = null;
                 if (window.getSelection) {
                     // all browsers, except IE before version 9
                     let currSelection = window.getSelection();
+                    // 删除字符后按实际文本位置记录光标，避免公式分段变化导致旧索引失效。
+                    if ((kcode == 8 || kcode == 46) && currSelection.rangeCount && $editer.get(0).contains(currSelection.anchorNode)) {
+                        const caretRange = document.createRange();
+                        caretRange.selectNodeContents($editer.get(0));
+                        caretRange.setEnd(currSelection.anchorNode, currSelection.anchorOffset);
+                        caretOffset = caretRange.toString().length;
+                    }
                     if ($(currSelection.anchorNode).is("div")) {
                         let editorlen = $("#luckysheet-rich-text-editor span").length;
                         _this.functionRangeIndex = [
@@ -3558,7 +3631,29 @@ const luckysheetformula = {
                 }
 
                 $editer.html(value);
-                _this.functionRange($editer, value, value1);
+                if (caretOffset !== null) {
+                    // 高亮重建后重新定位文本节点，不移动到整条公式的开头或末尾。
+                    const editor = $editer.get(0);
+                    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+                    let textNode = walker.nextNode();
+                    let remainingOffset = caretOffset;
+                    while (textNode) {
+                        const textLength = textNode.textContent.length;
+                        if (remainingOffset <= textLength) {
+                            const caretRange = document.createRange();
+                            caretRange.setStart(textNode, remainingOffset);
+                            caretRange.collapse(true);
+                            const selection = window.getSelection();
+                            selection.removeAllRanges();
+                            selection.addRange(caretRange);
+                            break;
+                        }
+                        remainingOffset -= textLength;
+                        textNode = walker.nextNode();
+                    }
+                } else {
+                    _this.functionRange($editer, value, value1);
+                }
                 _this.canceFunctionrangeSelected();
 
                 if (kcode != 46) {
@@ -6150,11 +6245,11 @@ const luckysheetformula = {
             let txt = ''
             file.calcChain?.find(({ r, c, func }) => {
                 if(r === row_index && c === col_index){
-                    txt = Store.flowdata[r][c]?.f;
+                    txt = Store.flowdata[r][c]?.f || '';
                     return true
                 }
             });
-            if(txt.indexOf('=GET_AIRTABLE_DATA') === 0){
+            if(txt?.indexOf('=GET_AIRTABLE_DATA') === 0){
                 this.showButton(row_index, col_index)
                 this.addButtonListener(txt,row_index, col_index,)
             }else{

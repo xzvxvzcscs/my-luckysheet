@@ -175,7 +175,7 @@ export function setCellValue(row, column, value, options = {}) {
 
     if(value == null || value.toString().length == 0){
         formula.delFunctionGroup(row, column);
-        setcellvalue(row, column, data, value);
+        setcellvalue(row, column, data, value, order);
     }
     else if(value instanceof Object){
         let curv = {};
@@ -191,7 +191,12 @@ export function setCellValue(row, column, value, options = {}) {
             if(value.ct!=null){
                 curv.ct = value.ct;
             }
-            data = luckysheetformula.updatecell(row, column, curv, false).data;//update formula value
+            const updateResult = luckysheetformula.updatecell(row, column, curv, false);
+            // 原生校验可能取消更新，API 入口也应停止写回。
+            if (!updateResult) return;
+            data = updateResult.data;
+            // 计算返回了新数据，继续在新单元格上写入格式，不能用旧对象覆盖结果。
+            cell = data[row][column];
         }
         else{
             if(value.ct!=null){
@@ -211,7 +216,7 @@ export function setCellValue(row, column, value, options = {}) {
             if(value.m!=null){
                 curv.m = value.m;
             }
-            setcellvalue(row, column, data, curv);//update text value
+            setcellvalue(row, column, data, curv, order);
         }
         for(let attr in value){
             let v = value[attr];
@@ -230,7 +235,7 @@ export function setCellValue(row, column, value, options = {}) {
         }
         else{
             formula.delFunctionGroup(row, column);
-            setcellvalue(row, column, data, value);
+            setcellvalue(row, column, data, value, order);
         }
     }
 
@@ -2873,6 +2878,8 @@ export function setRangeValue(data, options = {}) {
         for (let j = 0; j < columnCount; j++) {
             let row = range.row[0] + i,
                 column = range.column[0] + j;
+            // 批量公式基于本轮已写入的数据计算，避免后续单元格覆盖前面的粘贴结果。
+            if (file.index == Store.currentSheetIndex) Store.flowdata = file.data;
             setCellValue(row, column, data[i][j], {order: order, isRefresh: false})
         }
     }
@@ -2882,6 +2889,8 @@ export function setRangeValue(data, options = {}) {
     file.data.push(...sheetData);
 
     if(file.index == Store.currentSheetIndex){
+        // 刷新前恢复旧数据，让撤销快照仍记录粘贴前的值。
+        Store.flowdata = file.data;
         jfrefreshgrid(fileData, [{
             row: range.row,
             column: range.column,
@@ -6275,9 +6284,21 @@ export function setDataVerification(optionItem, options = {}) {
         hintText: hintText,
     }
 
+    // 服务端回填只恢复本地状态，避免复制整表、写入撤销记录及广播协作消息。
+    if (options.silent === true) {
+        file.dataVerification = file.dataVerification || {};
+        for (let r = range.row[0]; r <= range.row[1]; r++) {
+            for (let c = range.column[0]; c <= range.column[1]; c++) {
+                file.dataVerification[r + '_' + c] = item;
+            }
+        }
+        if (file.index == Store.currentSheetIndex) dataVerificationCtrl.dataVerification = file.dataVerification;
+        if (success && typeof success === 'function') success();
+        return;
+    }
     let currentDataVerification = $.extend(true, {}, file.dataVerification);
 
-    let data = $.extend(true, [], file.data);
+    let data = type == 'checkbox' ? $.extend(true, [], file.data) : file.data;
     if(data.length == 0){
         data = sheetmanage.buildGridData(file);
     }

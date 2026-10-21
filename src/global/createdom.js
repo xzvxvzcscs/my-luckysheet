@@ -56,7 +56,8 @@ export default function luckysheetcreatedom(colwidth, rowheight, data, menu, tit
         Store.config = {};
     }
 
-    rhchInit(rowheight, colwidth);
+    // DOM 创建前尚未切换全局数据矩阵，尺寸计算必须读取本次工作表的数据。
+    rhchInit(rowheight, colwidth, data);
 
     const _locale = locale();
     const locale_info = _locale.info;

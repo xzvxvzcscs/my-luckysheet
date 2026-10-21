@@ -548,6 +548,20 @@ export default {
                 },
             ],
         },
+        ROUNDBANK: {
+            d: "将数字舍入到指定的位数，遵循银行家舍入法（四舍六入五成双）。",
+            a: "使用银行家舍入法将数字四舍五入。",
+            p: [
+                {
+                    name: "值",
+                    detail: "要舍入的数字。",
+                },
+                {
+                    name: "位数",
+                    detail: "要进行舍入运算的位数。位数可以取负值，在这种情况下会将值的小数点左侧部分舍入到指定的位数。",
+                },
+            ],
+        },
         SERIESSUM: {
             d:
                 "给定参数 x、n、m 和 a，返回幂级数的和 a1xn + a2x(n+m) + ... + aix(n+(i-1)m)，其中 i 为范围 a 中的项数。",
@@ -6343,10 +6357,12 @@ export default {
         { text: "", value: "split", example: "" },
         { text: "会计", value: "¥(0.00)", example: "¥(1200.09)" },
         //{ "text": "财务", "value": "(#.####)", "example": "(1200.09)" },
+        { text: "千元", value: "#,##0.00,", example: "1,234.56" },
         { text: "万元", value: "w", example: "1亿2000万2500" },
+        { text: "万元2位小数", value: "w0.00", example: "2万2500.55" },
+        { text: "百万元", value: "#,##0.00,,", example: "1.23" },
         { text: "货币", value: "¥0.00", example: "¥1200.09" },
         //{ "text": "货币整数", "value": "¥####", "example": "¥1200" },
-        { text: "万元2位小数", value: "w0.00", example: "2万2500.55" },
         { text: "", value: "split", example: "" },
         { text: "日期", value: "yyyy-MM-dd", example: "2017-11-29" },
         { text: "时间", value: "hh:mm AM/PM", example: "3:00 PM" },
@@ -7315,7 +7331,7 @@ export default {
         refresh: "WebSocket连接发生错误, 请刷新页面！",
         wait: "WebSocket连接发生错误, 请耐心等待！",
         close: "WebSocket连接关闭",
-        contact: "服务器通信发生错误，请刷新页面后再试，如若不行请联系管理员！",
+        contact: "服務器通信發生錯誤，請刷新頁面後再試，如若不行請聯系管理員！",
         support: "当前浏览器不支持WebSocket",
     },
     exportXlsx: {

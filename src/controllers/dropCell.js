@@ -402,7 +402,7 @@ const luckysheetDropCell = {
                     let cell = Store.flowdata[r][c];
 
                     if(getObjType(cell) == "object" && cell["v"] != null && cell["f"] == null){
-                        if(cell["ct"] != null && cell["ct"].t == "n"){
+                        if(cell["ct"] != null && (cell["ct"].t == "n" || cell.ct.t == "g" && typeof cell.v == "number" && Number.isFinite(cell.v))){
                             hasNumber = true;
                         }
                         else if(cell["ct"] != null && cell["ct"].t == "d"){
@@ -494,6 +494,10 @@ const luckysheetDropCell = {
                             if(cell.spl != null){
                                 cell.spl = v[3].data;
                             }
+                            // 数值公式按复制到的格式生成显示值，避免单位格式与显示文本不一致。
+                            else if(isRealNum(cell.v) && cell.ct && cell.ct.fa && cell.ct.fa !== "General" && cell.v != Infinity && cell.v != -Infinity){
+                                cell.m = update(cell.ct.fa, Math.round(cell.v * 1000000000) / 1000000000).toString();
+                            }
                             else{
                                 if(isRealNum(cell.v) && !/^\d{6}(18|19|20)?\d{2}(0[1-9]|1[12])(0[1-9]|[12]\d|3[01])\d{3}(\d|X)$/i.test(cell.v)){
                                     if(cell.v == Infinity || cell.v == -Infinity){
@@ -510,7 +514,7 @@ const luckysheetDropCell = {
                                         }
                                         else{
                                             let mask;
-                                            if(cell.ct.fa === "##0.00"){
+                                            if(cell.ct && cell.ct.fa === "##0.00"){
                                                /* 如果是数字类型 */
                                                mask = genarate(Math.round(cell.v * 1000000000) / 1000000000 + ".00") ;
                                                cell.m = mask[0].toString();
@@ -589,6 +593,10 @@ const luckysheetDropCell = {
 
                             if(cell.spl != null){
                                 cell.spl = v[3].data;
+                            }
+                            // 数值公式按复制到的格式生成显示值，避免单位格式与显示文本不一致。
+                            else if(isRealNum(cell.v) && cell.ct && cell.ct.fa && cell.ct.fa !== "General" && cell.v != Infinity && cell.v != -Infinity){
+                                cell.m = update(cell.ct.fa, Math.round(cell.v * 1000000000) / 1000000000).toString();
                             }
                             else{
                                 if(isRealNum(cell.v) && !/^\d{6}(18|19|20)?\d{2}(0[1-9]|1[12])(0[1-9]|[12]\d|3[01])\d{3}(\d|X)$/i.test(cell.v)){
@@ -689,6 +697,10 @@ const luckysheetDropCell = {
                             if(cell.spl != null){
                                 cell.spl = v[3].data;
                             }
+                            // 数值公式按复制到的格式生成显示值，避免单位格式与显示文本不一致。
+                            else if(isRealNum(cell.v) && cell.ct && cell.ct.fa && cell.ct.fa !== "General" && cell.v != Infinity && cell.v != -Infinity){
+                                cell.m = update(cell.ct.fa, Math.round(cell.v * 1000000000) / 1000000000).toString();
+                            }
                             else{
                                 if(isRealNum(cell.v) && !/^\d{6}(18|19|20)?\d{2}(0[1-9]|1[12])(0[1-9]|[12]\d|3[01])\d{3}(\d|X)$/i.test(cell.v)){
                                     if(cell.v == Infinity || cell.v == -Infinity){
@@ -777,6 +789,10 @@ const luckysheetDropCell = {
 
                             if(cell.spl != null){
                                 cell.spl = v[3].data;
+                            }
+                            // 数值公式按复制到的格式生成显示值，避免单位格式与显示文本不一致。
+                            else if(isRealNum(cell.v) && cell.ct && cell.ct.fa && cell.ct.fa !== "General" && cell.v != Infinity && cell.v != -Infinity){
+                                cell.m = update(cell.ct.fa, Math.round(cell.v * 1000000000) / 1000000000).toString();
                             }
                             else{
                                 if(isRealNum(cell.v) && !/^\d{6}(18|19|20)?\d{2}(0[1-9]|1[12])(0[1-9]|[12]\d|3[01])\d{3}(\d|X)$/i.test(cell.v)){
@@ -927,7 +943,7 @@ const luckysheetDropCell = {
                 //单元格值类型
                 let str;
                 if(!!data && !!data["v"] && data["f"] == null){
-                    if(!!data["ct"] && data["ct"]["t"] == "n"){
+                    if(!!data["ct"] && (data["ct"]["t"] == "n" || data.ct.t == "g" && typeof data.v == "number" && Number.isFinite(data.v))){
                         str = "number";
                         extendNumberBeforeStr = null;
                         extendNumberAfterStr = null;

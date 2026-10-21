@@ -71,17 +71,17 @@ function dynamicArrayRangeIsAllNull(range, data) {
     let r1 = range["row"][0], r2 = range["row"][1];
     let c1 = range["column"][0], c2 = range["column"][1];
 
-    let isAllNull = true;
     for(let r = r1; r <= r2; r++){
+        const row = data[r];
+        // 结果越过当前网格时按溢出冲突处理，避免重绘访问不存在的行列。
+        if(!Array.isArray(row) || c1 < 0 || c2 >= row.length) return false;
         for(let c = c1; c <= c2; c++){
-            if(!(r == r1 && c == c1) && data[r][c] != null && data[r][c].v != null && data[r][c].v.toString() != ""){
-                isAllNull = false;
-                break;
-            }
+            // 发现占用后立即结束整个检查，保留原有溢出冲突提示。
+            if(!(r == r1 && c == c1) && row[c] != null && row[c].v != null && row[c].v.toString() != "") return false;
         }
     }
 
-    return isAllNull;
+    return true;
 }
 
 //点击表格区域是否属于动态数组区域

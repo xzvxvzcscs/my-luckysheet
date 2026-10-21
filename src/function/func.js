@@ -1759,12 +1759,8 @@ function luckysheet_parseData(value) {
                 return error.v;             
             }
             else{ //单个单元格
-                if(value.data.v === undefined){
-                    return "";
-                }
-                else{
-                    return value.data.v;
-                }
+                const cellValue = func_methods.getCellValue(value.data);
+                return cellValue === undefined ? "" : cellValue;
             }
         }
     }
