@@ -5919,7 +5919,31 @@ export function getAllSheets() {
 
     data.forEach((item, index, arr) => {
         if(item.data != null && item.data.length > 0){
-            item.celldata = sheetmanage.getGridData(item.data);
+            // Rebuilding celldata from data must retain original coordinate metadata.
+            const originalCells = new Map();
+            (item.celldata || []).forEach(cell => {
+                if (cell != null) {
+                    originalCells.set(`${cell.r}_${cell.c}`, cell);
+                }
+            });
+
+            item.celldata = sheetmanage.getGridData(item.data).map(cell => {
+                const originalCell = originalCells.get(`${cell.r}_${cell.c}`);
+                if (originalCell != null) {
+                    ["orgR", "orgC"].forEach(key => {
+                        if (Object.prototype.hasOwnProperty.call(originalCell, key)) {
+                            cell[key] = originalCell[key];
+                        }
+                        if (cell.v != null && typeof cell.v === "object" &&
+                            originalCell.v != null && typeof originalCell.v === "object" &&
+                            !Object.prototype.hasOwnProperty.call(cell.v, key) &&
+                            Object.prototype.hasOwnProperty.call(originalCell.v, key)) {
+                            cell.v[key] = originalCell.v[key];
+                        }
+                    });
+                }
+                return cell;
+            });
         }
 
         delete item.load;
