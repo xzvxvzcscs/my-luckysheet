@@ -925,7 +925,7 @@ export function checkProtectionLocked(r, c, sheetIndex, isOpenAlert=true, isLock
         return true;
     }
 
-    let data=sheetFile.data, cell=data[r][c], aut = sheetFile.config.authority;
+    let data=sheetFile.data, cell=data && data[r] && data[r][c], aut = sheetFile.config.authority;
 
     if(aut==null || aut.sheet==null || aut.sheet==0 ){
         return true;
@@ -944,7 +944,8 @@ export function checkProtectionLocked(r, c, sheetIndex, isOpenAlert=true, isLock
 //cell hidden state
 export function checkProtectionCellHidden(r, c, sheetIndex){
     let sheetFile = sheetmanage.getSheetByIndex(sheetIndex);
-    if(!sheetFile || (sheetFile.data && !sheetFile.data[r]) || (sheetFile.data && !sheetFile.data[r][c])){
+    // Imported sheets may not have a data matrix yet; sparse rows are also valid.
+    if(!sheetFile || !sheetFile.data || !sheetFile.data[r] || !sheetFile.data[r][c]){
         return true;
     }
 
@@ -996,7 +997,8 @@ export function checkProtectionLockedRangeList(rangeList, sheetIndex){
 
         for(let r=r1;r<=r2;r++){
             for(let c=c1;c<=c2;c++){
-                const cell = sheetFile.data[r][c] || {}
+                const data = sheetFile.data;
+                const cell = (data && data[r] && data[r][c]) || {};
                 let isLock = cell.lo === undefined || cell.lo === 1, // 单元格是否锁定
                     isPass = checkProtectionLockedSqref(r, c , aut, local_protection, true, isLock);
                 if(!isPass){
@@ -1022,7 +1024,7 @@ export function checkProtectionSelectLockedOrUnLockedCells(r, c, sheetIndex){
         return true;
     }
 
-    let data=sheetFile.data, cell=data[r][c], aut = sheetFile.config.authority;
+    let data=sheetFile.data, cell=data && data[r] && data[r][c], aut = sheetFile.config.authority;
 
     if(aut==null || aut.sheet==null || aut.sheet==0 ){
         return true;
