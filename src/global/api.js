@@ -2801,11 +2801,10 @@ export function setRangeShow(range, options = {}) {
         let changeparam = menuButton.mergeMoveMain(range[i].column, range[i].row, range[i]);
         if(changeparam) {
             // 合并范围调整仅更新坐标，保留整行/整列标记及焦点信息。
-            range[i] = {
-                ...range[i],
+            range[i] = Object.assign({}, range[i], {
                 "row": changeparam[1],
                 "column": changeparam[0]
-            }
+            });
         }
     }
 
