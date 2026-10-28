@@ -444,6 +444,19 @@ const luckysheetDropCell = {
         let d = editor.deepCopyFlowData(Store.flowdata);
         let file = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
 
+        // 来源坐标属于目标单元格，填充时保留原字段；原本不存在的字段也不从源格继承。
+        const preserveOrigin = (cell, target) => {
+            ['orgR', 'orgC'].forEach(key => {
+                if(target != null && Object.prototype.hasOwnProperty.call(target, key)){
+                    cell[key] = target[key];
+                }
+                else{
+                    delete cell[key];
+                }
+            });
+            return cell;
+        };
+
         let cfg = $.extend(true, {}, Store.config);
         let borderInfoCompute = getBorderInfoCompute();
         let dataVerification = $.extend(true, {}, file["dataVerification"]);
@@ -535,7 +548,7 @@ const luckysheetDropCell = {
                             }
                         }
 
-                        d[j][i] = cell;
+                        d[j][i] = preserveOrigin(cell, d[j][i]);
 
                         //边框
                         let bd_r = copy_str_r + (j - apply_str_r) % csLen;
@@ -628,7 +641,7 @@ const luckysheetDropCell = {
                             }
                         }
 
-                        d[j][i] = cell;
+                        d[j][i] = preserveOrigin(cell, d[j][i]);
 
                         //边框
                         let bd_r = copy_end_r - (apply_end_r - j) % csLen;
@@ -731,7 +744,7 @@ const luckysheetDropCell = {
                             }
                         }
 
-                        d[i][j] = cell;
+                        d[i][j] = preserveOrigin(cell, d[i][j]);
 
                         //边框
                         let bd_r = i;
@@ -824,7 +837,7 @@ const luckysheetDropCell = {
                             }
                         }
 
-                        d[i][j] = cell;
+                        d[i][j] = preserveOrigin(cell, d[i][j]);
 
                         //边框
                         let bd_r = i;

@@ -2800,10 +2800,11 @@ export function setRangeShow(range, options = {}) {
     for(let i = 0; i < range.length; i++){
         let changeparam = menuButton.mergeMoveMain(range[i].column, range[i].row, range[i]);
         if(changeparam) {
-            range[i] = {
+            // 合并范围调整仅更新坐标，保留整行/整列标记及焦点信息。
+            range[i] = Object.assign({}, range[i], {
                 "row": changeparam[1],
                 "column": changeparam[0]
-            }
+            });
         }
     }
 
