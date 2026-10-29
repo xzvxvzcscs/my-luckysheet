@@ -441,6 +441,8 @@ export function rowColumnOperationInitial() {
 
                 $("#luckysheet-cols-rows-shift").hide();
                 Store.luckysheetRightHeadClickIs = "row";
+                // 每次打开行号右键菜单时，将向上、向下插入的行数重置为 1。
+                $("#luckysheet-top-left-add-selected input, #luckysheet-bottom-right-add-selected input").val(1);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-word").text(locale().rightclick.row);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-size").text(locale().rightclick.height);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-left").text(locale().rightclick.top);
@@ -985,6 +987,8 @@ export function rowColumnOperationInitial() {
                 }
 
                 Store.luckysheetRightHeadClickIs = "column";
+                // 每次打开列标题菜单时，将向左、向右插入的列数重置为 1。
+                $("#luckysheet-top-left-add-selected input, #luckysheet-bottom-right-add-selected input").val(1);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-word").text(locale().rightclick.column);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-size").text(locale().rightclick.width);
                 $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-left").text(locale().rightclick.left);
@@ -1237,6 +1241,8 @@ export function rowColumnOperationInitial() {
         let offset = $(this).offset();
         $("#luckysheet-cols-rows-shift").show();
         Store.luckysheetRightHeadClickIs = "column";
+        // 每次打开列标题菜单时，将向左、向右插入的列数重置为 1。
+        $("#luckysheet-top-left-add-selected input, #luckysheet-bottom-right-add-selected input").val(1);
         $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-word").text(locale().rightclick.column);
         $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-left").text(locale().rightclick.left);
         $("#luckysheet-rightclick-menu .luckysheet-cols-rows-shift-right").text(locale().rightclick.right);
