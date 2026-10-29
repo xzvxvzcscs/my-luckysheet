@@ -5921,16 +5921,7 @@ export function getAllSheets() {
     data.forEach((item, index, arr) => {
         if(item.data != null && item.data.length > 0){
             // 以当前 data 为准，避免插入行后从旧 celldata 的同坐标单元格补入来源字段。
-            item.celldata = sheetmanage.getGridData(item.data).map(cell => {
-                if (cell.v != null && typeof cell.v === "object") {
-                    ["orgR", "orgC"].forEach(key => {
-                        if (Object.prototype.hasOwnProperty.call(cell.v, key)) {
-                            cell[key] = cell.v[key];
-                        }
-                    });
-                }
-                return cell;
-            });
+            item.celldata = sheetmanage.getGridData(item.data);
         }
 
         delete item.load;
