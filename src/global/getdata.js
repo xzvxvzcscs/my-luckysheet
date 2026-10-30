@@ -353,7 +353,7 @@ export function getFontStyleByCell(cell,checksAF,checksCF, isCheck=true){
             else{
                 f = value;
             }
-            style += "font-family: " + f + ";";
+            style += "font-family: " + f + ", " + locale_fontarray[0] + ";";
         }
 
         if(key == "fs"){

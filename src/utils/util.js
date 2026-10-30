@@ -446,8 +446,9 @@ function luckysheetfontformat(format) {
                 fontfamily = fontarray[0];
             }
 
+            // 指定字体缺失时优先使用字体列表首项，普通单元格和富文本共用此顺序。
             font +=
-                fontfamily +
+                fontfamily + ', ' + fontarray[0] +
                 ', "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif';
         }
 

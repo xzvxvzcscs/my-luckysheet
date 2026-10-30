@@ -417,6 +417,8 @@ export function convertCssToStyleList(cssText){
         }
 
         if(key=="font-family"){
+            // 编辑样式包含备用字体，保存时只保留首个字体，避免字体列表被误当成一个名称。
+            value = textTrim(value.split(',')[0]).replace(/["']/g, "");
             let ff = locale_fontjson[value];
             if(ff==null){
                 styleList["ff"] = value;
