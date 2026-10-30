@@ -6480,6 +6480,8 @@ export default {
     ],
     fontFamily: {
         MicrosoftYaHei: "YaHei",
+        unavailable: "Unavailable",
+        fallback: "Original font ${original} is unavailable; using ${fallback} as the fallback font",
     },
     fontarray: ["Times New Roman", "Arial", "Tahoma", "Verdana"],
     fontjson: { "times new roman": 0, arial: 1, tahoma: 2, verdana: 3 },

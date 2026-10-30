@@ -53,6 +53,7 @@ import { openProtectionModal, checkProtectionFormatCells, checkProtectionNotEnab
 import Store from "../store";
 import locale from "../locale/locale";
 import { checkTheStatusOfTheSelectedCells, frozenFirstRow, frozenFirstColumn } from "../global/api";
+import escapeHtml from "escape-html";
 
 const menuButton = {
     menu:
@@ -70,14 +71,11 @@ const menuButton = {
     rightclickmenu: null,
     submenuhide: {},
     focus: function($obj, value) {
-        if ($obj.attr("id") == "luckysheet-icon-font-family-menuButton") {
-            if (isdatatypemulti(value)["num"]) {
-                let _locale = locale();
-                const locale_fontarray = _locale.fontarray;
-                value = locale_fontarray[parseInt(value)];
-                if (value == null) {
-                    value = this.defualtFont[itemvalue];
-                }
+        const isFontMenu = $obj.attr("id") == "luckysheet-icon-font-family-menuButton";
+        if (isFontMenu && value != null && value !== "") {
+            value = this.getFontName(value);
+            if (!this.isFontAvailable(value)) {
+                value = locale().fontarray[0];
             }
         }
         $obj.find(".luckysheet-cols-menuitem")
@@ -89,8 +87,12 @@ const menuButton = {
                 .find("span.icon")
                 .html('<i class="fa fa-check luckysheet-mousedown-cancel"></i>');
         } else {
-            $obj.find(".luckysheet-cols-menuitem[itemvalue='" + value + "']")
-                .find("span.icon")
+            const $selected = isFontMenu
+                ? $obj.find(".luckysheet-cols-menuitem").filter(function() {
+                    return $(this).attr("itemvalue").toLowerCase() === String(value).toLowerCase();
+                })
+                : $obj.find(".luckysheet-cols-menuitem[itemvalue='" + value + "']");
+            $selected.find("span.icon")
                 .html('<i class="fa fa-check luckysheet-mousedown-cancel"></i>');
         }
     },
@@ -628,25 +630,21 @@ const menuButton = {
                     //     itemdata.push(ret);
                     // }
 
-                    let itemset = _this.createButtonMenu(_this.fontSelectList);
+                    let itemset = _this.createFontMenu();
 
                     let menu = replaceHtml(_this.menu, { id: "font-family", item: itemset, subclass: "", sub: "" });
 
                     $("body").append(menu);
                     $menuButton = $("#" + menuButtonId).width(200);
-                    _this.focus($menuButton);
+                    _this.changeMenuButtonDom("ff", _this.fontSelection);
 
                     $menuButton.on("click", ".luckysheet-cols-menuitem", function() {
                         $menuButton.hide();
                         luckysheetContainerFocus();
 
                         let $t = $(this),
-                            itemvalue = $t.attr("itemvalue"),
-                            itemname = $t.attr("itemname");
-                        _this.focus($menuButton, itemvalue);
-                        $("#luckysheet-icon-font-family")
-                            .find(".luckysheet-toolbar-menu-button-caption")
-                            .html(" " + itemname + " ");
+                            itemvalue = $t.attr("itemvalue");
+                        _this.changeMenuButtonDom("ff", itemvalue);
 
                         let d = editor.deepCopyFlowData(Store.flowdata);
 
@@ -4266,34 +4264,27 @@ const menuButton = {
         } else if (attr == "ff") {
             let menuButtonId = "luckysheet-icon-font-family-menuButton";
             let $menuButton = $("#" + menuButtonId);
-            // const locale_fontarray = locale().fontarray;
-            let itemname = locale_fontarray[0],
-                itemvalue = 0;
-            if (foucsStatus != null) {
-                if (isdatatypemulti(foucsStatus)["num"]) {
-                    itemvalue = parseInt(foucsStatus);
-                    itemname = locale_fontarray[itemvalue];
-
-                    if (itemname == null) {
-                        itemvalue = _this.defualtFont[itemvalue];
-                        itemname = itemvalue;
-                        if (itemvalue != null) {
-                            _this.addFontTolist(itemvalue);
-                        }
-                    }
-                } else {
-                    foucsStatus = foucsStatus.replace(/"/g, "").replace(/'/g, "");
-                    itemvalue = foucsStatus;
-                    itemname = foucsStatus;
-
-                    _this.addFontTolist(itemvalue);
+            const fonts = [...new Set([].concat(foucsStatus == null ? 0 : foucsStatus)
+                .map((font) => _this.getFontName(font)))];
+            const missing = [];
+            const renderedFonts = fonts.map((font) => {
+                _this.addFontTolist(font);
+                if (!_this.isFontAvailable(font)) {
+                    missing.push(font);
+                    return locale_fontarray[0];
                 }
-            }
-
-            _this.focus($menuButton, itemvalue);
-            $("#luckysheet-icon-font-family")
+                return font;
+            });
+            const itemname = renderedFonts.every((font) => font.toLowerCase() === renderedFonts[0].toLowerCase())
+                ? renderedFonts[0] : "";
+            const tip = missing.length > 0
+                ? replaceHtml(_locale.fontFamily.fallback, { original: missing.join(", "), fallback: locale_fontarray[0] })
+                : _locale.toolbar.font;
+            _this.fontSelection = fonts;
+            _this.focus($menuButton, itemname);
+            $("#luckysheet-icon-font-family").attr({ "data-tips": escapeHtml(tip), title: tip }).data("tips", escapeHtml(tip))
                 .find(".luckysheet-toolbar-menu-button-caption")
-                .html(" " + itemname + " ");
+                .text((missing.length > 0 ? "⚠ " : " ") + itemname + " ");
         } else if (attr == "fs") {
             let $menuButton = $("#luckysheet-icon-font-size-menuButton");
             let itemvalue = foucsStatus,
@@ -4454,6 +4445,13 @@ const menuButton = {
         for (let i = 0; i < foucsList.length; i++) {
             let attr = foucsList[i];
             let foucsStatus = _this.checkstatus(d, r, c, attr);
+
+            if (attr == "ff" && d && d[r] && isInlineStringCell(d[r][c])) {
+                const cell = d[r][c];
+                // 富文本片段的字体优先于单元格外层字体，混合字体不误显示为同一种字体。
+                const runs = cell.ct.s.filter((run) => run.v != null && String(run.v) !== "");
+                foucsStatus = runs.length > 0 ? runs.map((run) => run.ff == null ? cell.ff : run.ff) : cell.ff;
+            }
 
             this.changeMenuButtonDom(attr, foucsStatus, _locale);
         }
@@ -5344,6 +5342,84 @@ const menuButton = {
         return style;
     },
     fontSelectList: [],
+    fontSelection: null,
+    fontAvailability: new Map(),
+    fontContext: null,
+    getFontName: function(font) {
+        const fontarray = locale().fontarray;
+        if (font == null) {
+            return fontarray[0];
+        }
+        if (isdatatypemulti(font)["num"]) {
+            return fontarray[parseInt(font)] || this.defualtFont[parseInt(font)] || fontarray[0];
+        }
+        return String(font).replace(/["']/g, "").trim();
+    },
+    isFontAvailable: function(fontName) {
+        const name = fontName.toLowerCase();
+        if (this.fontAvailability.has(name)) {
+            return this.fontAvailability.get(name);
+        }
+        let available = ["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui"].includes(name);
+        if (document.fonts) {
+            document.fonts.forEach((face) => {
+                if (this.getFontName(face.family).toLowerCase() === name && face.status === "loaded") {
+                    available = true;
+                }
+            });
+        }
+        if (!available) {
+            this.fontContext = this.fontContext || document.createElement("canvas").getContext("2d");
+            const context = this.fontContext;
+            if (!context) {
+                return true;
+            }
+            // fonts.check 会对不存在的字体返回 true，改用多个基准字体对比中英文字形度量。
+            const samples = ["mmmmmmmmmmlliWW0123456789", "匯款業務清算銀行測試字体"];
+            const metrics = ["width", "actualBoundingBoxLeft", "actualBoundingBoxRight", "actualBoundingBoxAscent", "actualBoundingBoxDescent"];
+            available = ["monospace", "serif", "sans-serif"].some((fallback) => samples.some((text) => {
+                context.font = "72px " + fallback;
+                const baseline = context.measureText(text);
+                context.font = "72px " + JSON.stringify(fontName) + ", " + fallback;
+                const measured = context.measureText(text);
+                return metrics.some((key) => measured[key] !== baseline[key]);
+            }));
+        }
+        this.fontAvailability.set(name, available);
+        return available;
+    },
+    createFontMenu: function() {
+        const _locale = locale();
+        return this.fontSelectList.map((item) => {
+            const available = this.isFontAvailable(item.value);
+            const tip = available ? item.value : replaceHtml(_locale.fontFamily.fallback, {
+                original: item.value, fallback: _locale.fontarray[0],
+            });
+            const $item = $(replaceHtml(this.item, { value: "", name: "", example: "", sub: "", iconClass: "" }))
+                .attr({ itemvalue: item.value, itemname: item.value, title: tip });
+            $("<span class='luckysheet-mousedown-cancel'>")
+                .css({ "font-size": "11px", "font-family": JSON.stringify(item.value) + ", " + JSON.stringify(_locale.fontarray[0]) })
+                .text(item.value + (available ? "" : "（" + _locale.fontFamily.unavailable + "）"))
+                .appendTo($item.find(".luckysheet-cols-menuitem-content"));
+            return $item.prop("outerHTML");
+        }).join("");
+    },
+    refreshFontAvailability: function(event) {
+        menuButton.fontAvailability.clear();
+        const $menu = $("#luckysheet-icon-font-family-menuButton");
+        if ($menu.length > 0) {
+            $menu.html(menuButton.createFontMenu());
+        }
+        if (menuButton.fontSelection != null && $("#luckysheet-icon-font-family").length > 0) {
+            menuButton.changeMenuButtonDom("ff", menuButton.fontSelection);
+        }
+        if (event && event.type === "loadingdone" && $("#luckysheetTableContent").length > 0 &&
+            event.fontfaces.some((face) => menuButton.fontSelectList.some((item) =>
+                menuButton.getFontName(face.family).toLowerCase() === item.value.toLowerCase()))) {
+            // 网页字体加载完成后重绘画布，避免下拉框已更新但单元格还停留在备用字体。
+            luckysheetrefreshgrid();
+        }
+    },
     defualtFont: [
         "Times New Roman",
         "Arial",
@@ -5391,12 +5467,20 @@ const menuButton = {
             this.fontSelectList.push(ret);
 
             let $menuButton = $("#luckysheet-icon-font-family-menuButton");
-            let itemset = this.createButtonMenu(this.fontSelectList);
+            let itemset = this.createFontMenu();
             $menuButton.html(itemset);
         }
     },
     fontInitial: function(fontList) {
         let itemdata = [];
+        this.fontAvailability.clear();
+        this.fontSelection = null;
+        if (document.fonts) {
+            document.fonts.removeEventListener("loadingdone", this.refreshFontAvailability);
+            document.fonts.addEventListener("loadingdone", this.refreshFontAvailability);
+            document.fonts.removeEventListener("loadingerror", this.refreshFontAvailability);
+            document.fonts.addEventListener("loadingerror", this.refreshFontAvailability);
+        }
         const locale_fontarray = locale().fontarray;
         for (let a = 0; a < locale_fontarray.length; a++) {
             let fItem = locale_fontarray[a];
@@ -5430,11 +5514,13 @@ const menuButton = {
                 ret.example = "";
                 itemdata.push(ret);
 
-                if (document.fonts && !document.fonts.check("12px " + fItem.fontName)) {
+                if (document.fonts && !this.isFontAvailable(fItem.fontName)) {
                     if (fItem.url) {
                         const fontface = new FontFace(fItem.fontName, `url(${fItem.url})`);
                         document.fonts.add(fontface);
-                        fontface.load();
+                        fontface.load().catch(() => {
+                            this.refreshFontAvailability();
+                        });
                     }
                 }
             }

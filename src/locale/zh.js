@@ -6432,6 +6432,8 @@ export default {
     ],
     fontFamily: {
         MicrosoftYaHei: "Microsoft YaHei",
+        unavailable: "不可用",
+        fallback: "原字体「${original}」不可用，使用「${fallback}」作为备用字体",
     },
     fontarray: [
         "Times New Roman",

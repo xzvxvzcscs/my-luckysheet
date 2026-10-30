@@ -6168,6 +6168,8 @@ export default {
         }
     ],
     fontFamily:{
+        unavailable: "No disponible",
+        fallback: "La fuente original ${original} no está disponible; se usa ${fallback} como alternativa",
         MicrosoftYaHei:"YaHei",
     },
     fontarray: ["Times New Roman","Arial","Tahoma","Verdana"],
