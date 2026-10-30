@@ -1431,8 +1431,13 @@ const luckysheetformula = {
                     return;
                 }
             } else if (curv != null && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
+                const isText = curv.ct != null && (curv.ct.fa === "@" || curv.ct.t === "s");
+                // 文本格式必须严格比较，避免新增的前导零与旧数值被判为相同内容。
+                const sameContent = isText
+                    ? value === curv.v || value === curv.m
+                    : value == curv.v || value == curv.m;
                 // 公式重新提交时仍需计算，日期覆盖公式时也不能沿用旧缓存值。
-                if (getObjType(curv) == "object" && (value == curv.f || (dateInput == null || curv.f == null) && (value == curv.v || value == curv.m))) {
+                if (getObjType(curv) == "object" && (value == curv.f || (dateInput == null || curv.f == null) && sameContent)) {
                     _this.cancelNormalSelected();
                     return;
                 } else if (value == curv) {
