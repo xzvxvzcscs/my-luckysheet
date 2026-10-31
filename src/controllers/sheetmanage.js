@@ -848,6 +848,11 @@ const sheetmanage = {
     initialjfFile: function(menu, title) {
         let _this = this;
 
+        Store.luckysheetfile.forEach(sheet => {
+            sheet.scrollLeft = 0;
+            sheet.scrollTop = 0;
+        });
+
         _this.getCurSheet();
         let file = Store.luckysheetfile[_this.getSheetIndex(Store.currentSheetIndex)];
         _this.nulldata = datagridgrowth([], Store.defaultrowNum, Store.defaultcolumnNum);
@@ -1658,13 +1663,13 @@ const sheetmanage = {
         Store.scrollRefreshSwitch = false;
 
         if (file["scrollLeft"] != null && file["scrollLeft"] > 0) {
-            $("#luckysheet-scrollbar-x").scrollLeft(file["scrollLeft"] * Store.zoomRatio);
+            $("#luckysheet-scrollbar-x").scrollLeft(file["scrollLeft"]);
         } else {
             $("#luckysheet-scrollbar-x").scrollLeft(0);
         }
 
         if (file["scrollTop"] != null && file["scrollTop"] > 0) {
-            $("#luckysheet-scrollbar-y").scrollTop(file["scrollTop"] * Store.zoomRatio);
+            $("#luckysheet-scrollbar-y").scrollTop(file["scrollTop"]);
         } else {
             $("#luckysheet-scrollbar-y").scrollTop(0);
         }
