@@ -816,8 +816,11 @@ const sheetmanage = {
             }
         }
 
-        Store.luckysheet_selection_range =
-            file["luckysheet_selection_range"] == null ? [] : file["luckysheet_selection_range"];
+        const copyState = Store.luckysheet_copy_save;
+        const hasCurrentCopy = copyState && copyState.dataSheetIndex == file.index
+            && Array.isArray(copyState.copyRange) && copyState.copyRange.length > 0;
+        Store.luckysheet_selection_range = hasCurrentCopy && Array.isArray(file.luckysheet_selection_range)
+            ? file.luckysheet_selection_range : [];
         Store.config = file["config"] == null ? {} : file["config"];
 
         Store.zoomRatio = file["zoomRatio"] == null ? 1 : file["zoomRatio"];

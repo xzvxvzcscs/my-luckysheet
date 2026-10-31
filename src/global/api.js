@@ -5926,6 +5926,7 @@ export function getAllSheets() {
 
         delete item.load;
         delete item.freezen;
+        delete item.luckysheet_selection_range;
     })
 
     return data;
