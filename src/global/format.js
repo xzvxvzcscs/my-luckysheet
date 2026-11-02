@@ -1896,7 +1896,8 @@ function fuzzydate(s) {
     return o;
 }
 
-export function genarate(value) {
+// 加载已有数据时可关闭日期识别，保留接口中的日期字符串。
+export function genarate(value, detectDate = true) {
     var ret = [];
     var m = null, ct = {}, v = value;
     
@@ -2109,7 +2110,7 @@ export function genarate(value) {
         ct = { "fa": fmt, "t": "n" };
         v = raw;
     }
-    else if (isdatetime(value) && (value.toString().indexOf(".") > -1 || value.toString().indexOf(":") > -1 || value.toString().length < 16)){
+    else if (detectDate && isdatetime(value) && (value.toString().indexOf(".") > -1 || value.toString().indexOf(":") > -1 || value.toString().length < 16)){
         v = datenum_local(parseDate(value.toString().replace(/-/g, "/")));
 
         if(v.toString().indexOf(".") > -1){

@@ -6,7 +6,7 @@ import luckysheetConfigsetting from "../controllers/luckysheetConfigsetting";
 import Store from "../store/index";
 
 //Set cell value
-function setcellvalue(r, c, d, v, sheetOrder) {
+function setcellvalue(r, c, d, v, sheetOrder, detectDate = true) {
     if (d == null) {
         d = Store.flowdata;
     }
@@ -16,7 +16,7 @@ function setcellvalue(r, c, d, v, sheetOrder) {
 
     // 新增：检测是否为超长数字字符串（整数部分 ≥ 16 位或总有效数字 ≥ 16
     // 日期输入先按序列处理，避免大数精度分支提前覆盖日期格式。
-    const dateInput = typeof v === 'string' && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === 'function'
+    const dateInput = detectDate && typeof v === 'string' && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === 'function'
         ? luckysheetConfigsetting.hook.cellValueFormat(v, cell, true, r, c, sheetOrder)
         : null;
     const isLongNum = dateInput == null && typeof v === 'string' && /^-?\d+\.?\d*$/.test(v) && v.replace('-', '').replace('.', '').length > 16;
@@ -98,7 +98,7 @@ function setcellvalue(r, c, d, v, sheetOrder) {
 
     // 日期格式的写值与显示分开处理，业务钩子未处理时继续使用原生逻辑。
     if (luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.cellValueFormat === 'function') {
-        const dateValue = dateInput || luckysheetConfigsetting.hook.cellValueFormat(vupdate, cell, typeof v === 'string', r, c, sheetOrder);
+        const dateValue = dateInput || luckysheetConfigsetting.hook.cellValueFormat(vupdate, cell, detectDate && typeof v === 'string', r, c, sheetOrder);
         if (dateValue != null) {
             cell.v = dateValue.v;
             cell.m = dateValue.m;
@@ -177,7 +177,7 @@ function setcellvalue(r, c, d, v, sheetOrder) {
             let mask = update(cell.ct.fa, vupdate);
             if (mask === vupdate) {
                 //若原来单元格格式 应用不了 要更新的值，则获取更新值的 格式
-                mask = genarate(vupdate);
+                mask = genarate(vupdate, detectDate);
                 cell.m = mask[0].toString();
                 cell.ct = mask[1];
                 cell.v = mask[2];
@@ -207,7 +207,7 @@ function setcellvalue(r, c, d, v, sheetOrder) {
                     cell.m = mask[0].toString();
                 }
             } else {
-                let mask = genarate(vupdate);
+                let mask = genarate(vupdate, detectDate);
 
                 cell.m = mask[0].toString();
                 cell.ct = mask[1];
