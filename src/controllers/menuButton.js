@@ -74,9 +74,6 @@ const menuButton = {
         const isFontMenu = $obj.attr("id") == "luckysheet-icon-font-family-menuButton";
         if (isFontMenu && value != null && value !== "") {
             value = this.getFontName(value);
-            if (!this.isFontAvailable(value)) {
-                value = locale().fontarray[0];
-            }
         }
         $obj.find(".luckysheet-cols-menuitem")
             .find("span.icon")
@@ -4267,19 +4264,18 @@ const menuButton = {
             const fonts = [...new Set([].concat(foucsStatus == null ? 0 : foucsStatus)
                 .map((font) => _this.getFontName(font)))];
             const missing = [];
-            const renderedFonts = fonts.map((font) => {
+            fonts.forEach((font) => {
                 _this.addFontTolist(font);
                 if (!_this.isFontAvailable(font)) {
                     missing.push(font);
-                    return locale_fontarray[0];
                 }
-                return font;
             });
-            const itemname = renderedFonts.every((font) => font.toLowerCase() === renderedFonts[0].toLowerCase())
-                ? renderedFonts[0] : "";
+            // 显示保存的原字体；备用字体只用于渲染，不合并不同的原字体。
+            const itemname = fonts.every((font) => font.toLowerCase() === fonts[0].toLowerCase())
+                ? fonts[0] : "";
             const tip = missing.length > 0
                 ? replaceHtml(_locale.fontFamily.fallback, { original: missing.join(", "), fallback: locale_fontarray[0] })
-                : _locale.toolbar.font;
+                : replaceHtml(_locale.fontFamily.available, { original: fonts.join(", ") });
             _this.fontSelection = fonts;
             _this.focus($menuButton, itemname);
             $("#luckysheet-icon-font-family").attr({ "data-tips": escapeHtml(tip), title: tip }).data("tips", escapeHtml(tip))
@@ -5392,7 +5388,7 @@ const menuButton = {
         const _locale = locale();
         return this.fontSelectList.map((item) => {
             const available = this.isFontAvailable(item.value);
-            const tip = available ? item.value : replaceHtml(_locale.fontFamily.fallback, {
+            const tip = available ? replaceHtml(_locale.fontFamily.available, { original: item.value }) : replaceHtml(_locale.fontFamily.fallback, {
                 original: item.value, fallback: _locale.fontarray[0],
             });
             const $item = $(replaceHtml(this.item, { value: "", name: "", example: "", sub: "", iconClass: "" }))

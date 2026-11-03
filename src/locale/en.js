@@ -6481,7 +6481,8 @@ export default {
     fontFamily: {
         MicrosoftYaHei: "YaHei",
         unavailable: "Unavailable",
-        fallback: "Original font ${original} is unavailable; using ${fallback} as the fallback font",
+        available: "Font: ${original}. Missing glyphs use system fallback fonts.",
+        fallback: "Original font ${original} was not detected. The browser will try ${fallback} and system fallback fonts; glyphs may vary by character.",
     },
     fontarray: ["Times New Roman", "Arial", "Tahoma", "Verdana"],
     fontjson: { "times new roman": 0, arial: 1, tahoma: 2, verdana: 3 },

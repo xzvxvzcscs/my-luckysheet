@@ -6169,7 +6169,8 @@ export default {
     ],
     fontFamily:{
         unavailable: "No disponible",
-        fallback: "La fuente original ${original} no está disponible; se usa ${fallback} como alternativa",
+        available: "Fuente: ${original}. Los glifos que faltan usan fuentes alternativas del sistema.",
+        fallback: "No se detectó la fuente original ${original}. El navegador probará ${fallback} y fuentes alternativas del sistema; los glifos pueden variar según el carácter.",
         MicrosoftYaHei:"YaHei",
     },
     fontarray: ["Times New Roman","Arial","Tahoma","Verdana"],
