@@ -6,6 +6,7 @@ import {checkWordByteLength, hasChinaword, isRealNull} from './validate';
 import {isInlineStringCell} from '../controllers/inlineString';
 
 import Store from '../store';
+import { getCellFont } from '../utils/font';
 
 /**
  * 计算范围行高
@@ -440,7 +441,7 @@ function getCellTextInfo(cell , ctx, option){
     if(isInlineStringCell(cell)){
         let sharedStrings = cell.ct.s, similarIndex = 0;
         for(let i=0;i<sharedStrings.length;i++){
-            let shareCell = sharedStrings[i];
+            let shareCell = getCellFont(cell, sharedStrings[i]);
             let scfontset = luckysheetfontformat(shareCell);
             let fc = shareCell.fc, cl=shareCell.cl,un = shareCell.un, v = shareCell.v, fs=shareCell.fs;
             v = v.replace(/\r\n/g, "_x000D_").replace(/&#13;&#10;/g, "_x000D_").replace(/\r/g, "_x000D_").replace(/\n/g, "_x000D_");

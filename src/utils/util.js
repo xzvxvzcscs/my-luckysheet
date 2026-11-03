@@ -5,6 +5,7 @@ import { hasChinaword, isRealNum } from "../global/validate";
 import Store from "../store";
 import locale from "../locale/locale";
 import numeral from "numeral";
+import { getFontFamily } from "./font";
 // import method from '../global/method';
 
 /**
@@ -390,7 +391,6 @@ function ArrayUnique(dataArr) {
 
 //获取字体配置
 function luckysheetfontformat(format) {
-    let fontarray = locale().fontarray;
     if (getObjType(format) == "object") {
         let font = "";
 
@@ -418,39 +418,7 @@ function luckysheetfontformat(format) {
             font += Number(format.fs) + "pt ";
         }
 
-        if (!format.ff) {
-            font +=
-                fontarray[0] +
-                ', "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif';
-        } else {
-            let fontfamily = null;
-            let fontjson = locale().fontjson;
-            if (isdatatypemulti(format.ff)["num"]) {
-                fontfamily = fontarray[parseInt(format.ff)];
-            } else {
-                // fontfamily = fontarray[fontjson[format.ff]];
-                fontfamily = format.ff;
-
-                fontfamily = fontfamily.replace(/"/g, "").replace(/'/g, "");
-
-                if (fontfamily.indexOf(" ") > -1) {
-                    fontfamily = '"' + fontfamily + '"';
-                }
-
-                if (fontfamily != null && document.fonts && !document.fonts.check("12px " + fontfamily)) {
-                    menuButton.addFontTolist(fontfamily);
-                }
-            }
-
-            if (fontfamily == null) {
-                fontfamily = fontarray[0];
-            }
-
-            // 指定字体缺失时优先使用字体列表首项，普通单元格和富文本共用此顺序。
-            font +=
-                fontfamily + ', ' + fontarray[0] +
-                ', "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", "WenQuanYi Micro Hei", sans-serif';
-        }
+        font += getFontFamily(format.ff);
 
         return font;
     } else {

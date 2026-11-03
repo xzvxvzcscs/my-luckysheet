@@ -2,6 +2,7 @@ import {getFontStyleByCell, textTrim} from "../global/getdata";
 import {selectTextContent,selectTextContentCross,selectTextContentCollapse} from '../global/cursorPos';
 import locale from '../locale/locale';
 import Store from '../store';
+import { getCellFont } from '../utils/font';
 
 export const inlineStyleAffectAttribute = {"bl":1, "it":1 , "ff":1, "cl":1, "un":1,"fs":1,"fc":1};
 export const inlineStyleAffectCssName = {"font-weight":1, "font-style":1 , "font-family":1, "text-decoration":1, "border-bottom":1,"font-size":1,"color":1};
@@ -20,7 +21,7 @@ export function updateInlineStringFormat(cell, attr, value, $input){
     // let s = Store.inlineStringEditCache;
     var  w = window.getSelection(); 
     var range;
-    if(w.type=="None"){
+    if(!w || !w.rangeCount || w.type=="None"){
         range = Store.inlineStringEditRange;
     }
     else{
@@ -39,6 +40,7 @@ export function updateInlineStringFormat(cell, attr, value, $input){
     //     }];
     // }
 
+    if (!range) return false;
     let cac = range.commonAncestorContainer;
     let $textEditor;
     if(cac.id=="luckysheet-rich-text-editor"){
@@ -62,7 +64,7 @@ export function updateInlineStringFormat(cell, attr, value, $input){
     }
 
     if(range.collapsed===true){
-        return;
+        return false;
     }
 
     let endContainer = range.endContainer, startContainer = range.startContainer;
@@ -149,6 +151,7 @@ export function updateInlineStringFormat(cell, attr, value, $input){
             }
 
             selectTextContent($textEditor.find("span").get(seletedNodeIndex));
+            return true;
         }
         else{
             if(startContainer.parentNode.tagName=="SPAN" && endContainer.parentNode.tagName=="SPAN"){
@@ -223,12 +226,14 @@ export function updateInlineStringFormat(cell, attr, value, $input){
                 spans = $textEditor.find("span");
 
                 selectTextContentCross(spans.get(startSeletedNodeIndex), spans.get(endSeletedNodeIndex));
+                return true;
             }
         }
     }
     else if($functionbox.length>0){
 
     }
+    return false;
 }
 
 export function enterKeyControll(cell){
@@ -375,25 +380,17 @@ export function convertSpanToShareString($dom){
     return styles;
 }
 
-export function convertCssToStyleList(cssText){
+export function convertCssToStyleList(cssText, inheritedFont){
     if(cssText==null || cssText.length==0){
-        return {};
+        return inheritedFont ? { ...inheritedFont } : {};
     }
     let cssTextArray = cssText.split(";");
 
 
     const _locale = locale();
-    const locale_fontarray = _locale.fontarray;
     const locale_fontjson = _locale.fontjson;
-    let styleList = {    
-        "ff":locale_fontarray[0], //font family
-        "fc":"#000000",//font color
-        "fs":10,//font size
-        "cl":0,//strike
-        "un":0,//underline
-        "bl":0,//blod
-        "it":0,//italic
-    };
+    let styleList = { ...getCellFont(null), ...inheritedFont };
+    delete styleList.v;
     cssTextArray.forEach(s => {
         s = s.toLowerCase();
         let key = textTrim(s.substr(0, s.indexOf(':')));
@@ -429,7 +426,7 @@ export function convertCssToStyleList(cssText){
         }
 
         if(key=="font-size"){
-            styleList["fs"] = parseFloat(value);
+            styleList["fs"] = parseFloat(value) * (/px$/.test(value) ? 72 / 96 : 1);
         }
 
         if(key=="color"){
@@ -437,11 +434,12 @@ export function convertCssToStyleList(cssText){
         }
 
         if(key=="text-decoration"){
-                styleList["cl"] = 1;
+            styleList["cl"] = value.includes('line-through') ? 1 : 0;
+            if (value.includes('underline')) styleList["un"] = 1;
         }
 
         if(key=="border-bottom"){
-            styleList["un"] = 1;
+            styleList["un"] = value === 'none' || value.startsWith('0px') ? 0 : 1;
         }
 
         if(key=="lucky-strike"){

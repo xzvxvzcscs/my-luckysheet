@@ -8,6 +8,7 @@ import sheetmanage from '../controllers/sheetmanage';
 import { isInlineStringCT,isInlineStringCell,convertCssToStyleList } from '../controllers/inlineString';
 import locale from '../locale/locale';
 import Store from '../store';
+import { getCellFont, getFontFamily } from '../utils/font';
 
 //Get selection range value
 export function getdatabyselection(range, sheetIndex) {
@@ -315,7 +316,7 @@ export function getInlineStringStyle(r, c, data){
         for(let i=0;i<strings.length;i++){
             let strObj = strings[i];
             if(strObj.v!=null){
-                let style = getFontStyleByCell(strObj);
+                let style = getFontStyleByCell(getCellFont(cell, strObj));
                 value += "<span index='"+ i +"' style='"+ style +"'>" + strObj.v + "</span>";
             }
         }
@@ -330,37 +331,28 @@ export function getFontStyleByCell(cell,checksAF,checksCF, isCheck=true){
         return;
     }
     let style = "";
-    const _locale = locale();
-    const locale_fontarray = _locale.fontarray;
     for(let key in cell){
         let value = cell[key];
         if(isCheck){
             value = checkstatusByCell(cell, key);
         }
-        if(key == "bl" && value != "0"){
-            style += "font-weight: bold;";
+        if(key == "bl"){
+            style += value != "0" ? "font-weight: bold;" : "font-weight: normal;";
         }
 
-        if(key == "it" && value != "0"){
-            style += "font-style:italic;";
+        if(key == "it"){
+            style += value != "0" ? "font-style:italic;" : "font-style:normal;";
         }
 
         if(key == "ff"){
-            let f = value;
-            if(!isNaN(parseInt(value))){
-                f = locale_fontarray[parseInt(value)];
-            }
-            else{
-                f = value;
-            }
-            style += "font-family: " + f + ", " + locale_fontarray[0] + ";";
+            style += "font-family: " + getFontFamily(value) + ";";
         }
 
         if(key == "fs"){
             style += "font-size: "+ value + "pt;";
         }
 
-        if((key == "fc" && value != "#000000") || checksAF != null || (checksCF != null && checksCF["textColor"] != null)){
+        if(key == "fc" || checksAF != null || (checksCF != null && checksCF["textColor"] != null)){
             if(checksCF != null && checksCF["textColor"] != null){
                 style += "color: " + checksCF["textColor"] + ";";
             }
@@ -372,8 +364,12 @@ export function getFontStyleByCell(cell,checksAF,checksCF, isCheck=true){
             }
         }
 
-        if(key == "cl" && value != "0"){
-            style += "text-decoration: line-through;";
+        if(key == "cl"){
+            style += value != "0" ? "text-decoration: line-through;" : "text-decoration: none;";
+        }
+
+        if(key == "un"){
+            style += value != "0" ? "border-bottom: 1px solid currentColor;" : "border-bottom: none;";
         }
 
     }
