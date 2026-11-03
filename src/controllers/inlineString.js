@@ -429,7 +429,7 @@ export function convertCssToStyleList(cssText){
         }
 
         if(key=="font-size"){
-            styleList["fs"] = parseInt(value);
+            styleList["fs"] = parseFloat(value);
         }
 
         if(key=="color"){
@@ -558,7 +558,7 @@ function getCssText(cssText, attr, value){
         if(fs==""){
             fs = 11;
         }
-        fs = parseInt(fs);
+        fs = parseFloat(fs);
         styleObj["_fontSize"] = fs;
         styleObj["_color"] = fontColor;
     }
