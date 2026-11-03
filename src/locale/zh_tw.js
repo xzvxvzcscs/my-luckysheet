@@ -6178,10 +6178,12 @@ export default {
         // },
     ],
     fontFamily: {
+        mixed: "混合字體",
+        mixedStyle: "混合格式",
         MicrosoftYaHei: "Microsoft YaHei",
         unavailable: "不可用",
         available: "字體：${original}。缺失字形由系統備用字體顯示。",
-        fallback: "未偵測到原字體「${original}」，將嘗試「${fallback}」及系統備用字體；實際字形取決於字元。",
+        fallback: "未偵測到原字體「${original}」，將嘗試同類及系統備用字體；實際字形取決於字元。",
     },
     fontarray: ["Times New Roman", "Arial", "Tahoma", "Verdana", "微軟雅黑", "宋體", "黑體", "楷體", "仿宋", "新宋體", "華文新魏", "華文行楷", "華文隸書"],
     fontjson : { "times new roman": 0, "arial": 1, "tahoma": 2, "verdana": 3, "微軟雅黑": 4, "microsoft yahei": 4, "宋體": 5, "simsun": 5, "黑體": 6, "simhei": 6, "楷體": 7, "kaiti": 7, "仿宋": 8, "fangsong": 8, "新宋體": 9, "nsimsun": 9, "華文新魏": 10, "stxinwei": 10, "華文行楷": 11, "stxingkai": 11, "華文隸書": 12, "stliti": 12, },

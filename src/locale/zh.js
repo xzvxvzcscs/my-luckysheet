@@ -6432,9 +6432,11 @@ export default {
     ],
     fontFamily: {
         MicrosoftYaHei: "Microsoft YaHei",
+        mixed: "混合字体",
+        mixedStyle: "混合格式",
         unavailable: "不可用",
         available: "字体：${original}。缺失字形由系统备用字体显示。",
-        fallback: "未检测到原字体「${original}」，将尝试「${fallback}」及系统备用字体；实际字形取决于字符。",
+        fallback: "未检测到原字体「${original}」，将尝试同类及系统备用字体；实际字形取决于字符。",
     },
     fontarray: [
         "Times New Roman",

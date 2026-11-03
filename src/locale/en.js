@@ -6479,10 +6479,12 @@ export default {
         },
     ],
     fontFamily: {
+        mixed: "Mixed fonts",
+        mixedStyle: "Mixed formatting",
         MicrosoftYaHei: "YaHei",
         unavailable: "Unavailable",
         available: "Font: ${original}. Missing glyphs use system fallback fonts.",
-        fallback: "Original font ${original} was not detected. The browser will try ${fallback} and system fallback fonts; glyphs may vary by character.",
+        fallback: "Original font ${original} was not detected. The browser will try similar and system fallback fonts; glyphs may vary by character.",
     },
     fontarray: ["Times New Roman", "Arial", "Tahoma", "Verdana"],
     fontjson: { "times new roman": 0, arial: 1, tahoma: 2, verdana: 3 },

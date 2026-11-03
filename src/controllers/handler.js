@@ -416,6 +416,9 @@ export default function luckysheetHandler() {
     $("#luckysheet-rich-text-editor").mouseup(function(e) {
         menuButton.inputMenuButtonFocus(e.target);
     });
+    $("#luckysheet-rich-text-editor, #luckysheet-functionbox-cell").on("keyup.fontState input.fontState", function(e) {
+        menuButton.inputMenuButtonFocus(e.target);
+    });
 
     //表格mousedown
     $("#luckysheet-cell-main, #luckysheetTableContent")

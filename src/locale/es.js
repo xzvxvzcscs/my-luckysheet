@@ -6168,9 +6168,11 @@ export default {
         }
     ],
     fontFamily:{
+        mixed: "Fuentes mixtas",
+        mixedStyle: "Formato mixto",
         unavailable: "No disponible",
         available: "Fuente: ${original}. Los glifos que faltan usan fuentes alternativas del sistema.",
-        fallback: "No se detectó la fuente original ${original}. El navegador probará ${fallback} y fuentes alternativas del sistema; los glifos pueden variar según el carácter.",
+        fallback: "No se detectó la fuente original ${original}. El navegador probará fuentes similares y alternativas del sistema; los glifos pueden variar según el carácter.",
         MicrosoftYaHei:"YaHei",
     },
     fontarray: ["Times New Roman","Arial","Tahoma","Verdana"],
