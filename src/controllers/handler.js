@@ -2634,6 +2634,13 @@ export default function luckysheetHandler() {
                 } else if (Store.luckysheet_rows_selected_status) {
                     let mouse = mouseposition(event.pageX, event.pageY);
                     let y = mouse[1] + $("#luckysheet-rows-h").scrollTop();
+                    // 拖选跨过冻结区时，终点坐标与行号按下时保持同一换算规则。
+                    if (
+                        luckysheetFreezen.freezenhorizontaldata != null &&
+                        mouse[1] < luckysheetFreezen.freezenhorizontaldata[0] - luckysheetFreezen.freezenhorizontaldata[2]
+                    ) {
+                        y = mouse[1] + luckysheetFreezen.freezenhorizontaldata[2];
+                    }
                     if (y < 0) {
                         return false;
                     }
@@ -2687,6 +2694,10 @@ export default function luckysheetHandler() {
                     Store.luckysheet_select_save[Store.luckysheet_select_save.length - 1] = last;
 
                     selectHightlightShow();
+                    // 行号拖选后同步刷新冻结选框，与点击行号的显示时机保持一致。
+                    if (luckysheetFreezen.freezenhorizontaldata != null || luckysheetFreezen.freezenverticaldata != null) {
+                        luckysheetFreezen.scrollAdaptOfselect();
+                    }
                     clearTimeout(Store.countfuncTimeout);
                     Store.countfuncTimeout = setTimeout(function() {
                         countfunc();

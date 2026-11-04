@@ -27,6 +27,7 @@ import {
 } from "./protection";
 import Store from "../store";
 import luckysheetConfigsetting from "./luckysheetConfigsetting";
+import luckysheetFreezen from "./freezen";
 
 export function rowColumnOperationInitial() {
     //表格行标题 mouse事件
@@ -35,6 +36,7 @@ export function rowColumnOperationInitial() {
             if (!checkProtectionAllSelected(Store.currentSheetIndex)) {
                 return;
             }
+            $("#luckysheet-rows-h-hover").hide();
             //有批注在编辑时
             luckysheetPostil.removeActivePs();
 
@@ -48,6 +50,14 @@ export function rowColumnOperationInitial() {
 
             let mouse = mouseposition(event.pageX, event.pageY);
             let y = mouse[1] + $("#luckysheet-rows-h").scrollTop();
+
+            // 冻结行号使用冻结时的滚动起点，避免向下滚动后选中数据区的行。
+            if (
+                luckysheetFreezen.freezenhorizontaldata != null &&
+                mouse[1] < luckysheetFreezen.freezenhorizontaldata[0] - luckysheetFreezen.freezenhorizontaldata[2]
+            ) {
+                y = mouse[1] + luckysheetFreezen.freezenhorizontaldata[2];
+            }
 
             let row_location = rowLocation(y),
                 row = row_location[1],
@@ -387,6 +397,11 @@ export function rowColumnOperationInitial() {
 
                 selectHightlightShow();
 
+                // 行号选择也立即适配冻结选框，避免等待下一次滚动才显示。
+                if (luckysheetFreezen.freezenhorizontaldata != null || luckysheetFreezen.freezenverticaldata != null) {
+                    luckysheetFreezen.scrollAdaptOfselect();
+                }
+
                 //允许编辑后的后台更新时
                 server.saveParam("mv", Store.currentSheetIndex, Store.luckysheet_select_save);
             }
@@ -416,7 +431,17 @@ export function rowColumnOperationInitial() {
                 row_pre = row_location[0],
                 row_index = row_location[2];
 
-            $("#luckysheet-rows-h-hover").css({ top: row_pre, height: row - row_pre - 1, display: "block" });
+            let hoverTop = row_pre;
+            let hoverHeight = row - row_pre - 1;
+            const frozenRows = luckysheetFreezen.freezenhorizontaldata;
+            // 悬停层位于滚动容器内，冻结行的实际位置和高度需单独换算。
+            if (frozenRows != null && mouse[1] < frozenRows[0] - frozenRows[2]) {
+                const hoverRow = rowLocation(mouse[1] + frozenRows[2]);
+                hoverTop = hoverRow[0] + $("#luckysheet-rows-h").scrollTop() - frozenRows[2];
+                hoverHeight = hoverRow[1] - hoverRow[0] - 1;
+            }
+
+            $("#luckysheet-rows-h-hover").css({ top: hoverTop, height: hoverHeight, display: "block" });
 
             if (y < row - 1 && y >= row - 5) {
                 $("#luckysheet-rows-change-size").css({ top: row - 3, opacity: 0 });
