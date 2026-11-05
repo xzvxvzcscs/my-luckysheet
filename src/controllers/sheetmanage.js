@@ -1112,6 +1112,8 @@ const sheetmanage = {
         let file = Store.luckysheetfile[index];
 
         Store.flowdata = file["data"];
+        // 溢出范围只按行号缓存，切换数据后必须清理，避免沿用上一张工作表的绘制范围。
+        Store.cellOverflowMapCache = {};
         editor.webWorkerFlowDataCache(Store.flowdata); //worker存数据
 
         // formula.execFunctionGroupData = null;
