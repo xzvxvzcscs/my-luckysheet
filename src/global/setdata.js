@@ -236,6 +236,13 @@ function setcellvalue(r, c, d, v, sheetOrder, detectDate = true) {
         }
     }
 
+    // 公式结果写回后统一应用业务显示规则，避免原生格式覆盖单位和舍位配置。
+    const displayFormat = luckysheetConfigsetting.hook && luckysheetConfigsetting.hook.cellDisplayFormat;
+    if (typeof displayFormat === 'function') {
+        const displayValue = displayFormat(cell);
+        if (displayValue != null) cell.m = displayValue;
+    }
+
     d[r][c] = cell;
     return cell;
 }
