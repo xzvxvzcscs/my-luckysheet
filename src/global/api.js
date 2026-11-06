@@ -239,6 +239,11 @@ export function setCellValue(row, column, value, options = {}) {
         }
     }
 
+    // 自动修复关闭更新前钩子时不补编辑标记，普通 API 写入则与内容共用同一条历史记录。
+    if (triggerBeforeUpdate) {
+        method.createHookFunction("cellUpdateAccepted", row, column, value, isRefresh, data[row][column]);
+    }
+
     /* cell更新后触发  */
     setTimeout(() => {
         let oldValueObj

@@ -1676,13 +1676,14 @@ const luckysheetformula = {
             selectedCell.qp = 1;
             setcellvalue(r, c, d, dropdownText);
         }
+        if (dropdownRule && (dropdownRule.prohibitInput || dropdownText !== undefined) && !dataVerificationCtrl.validateCellData(undefined, dropdownRule, d[r][c])) {
+            tooltip.info(dataVerificationCtrl.getFailureText(dropdownRule), "");
+            _this.cancelNormalSelected();
+            return;
+        }
+        // 普通输入与下拉输入都在校验通过后修改待提交副本，避免编辑标记单独生成撤销记录。
+        method.createHookFunction("cellUpdateAccepted", r, c, value, isRefresh, d[r][c]);
         if (dropdownRule) {
-            if ((dropdownRule.prohibitInput || dropdownText !== undefined) && !dataVerificationCtrl.validateCellData(undefined, dropdownRule, d[r][c])) {
-                tooltip.info(dataVerificationCtrl.getFailureText(dropdownRule), "");
-                _this.cancelNormalSelected();
-                return;
-            }
-            method.createHookFunction("cellUpdateAccepted", r, c, value, isRefresh, d[r][c]);
             const pendingCell = d[r][c];
             // 关联查找使用本轮格式化单元格，不能把显示值重新还原成无格式的原始数值。
             if (pendingCell && pendingCell.f != null) {
