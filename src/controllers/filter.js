@@ -26,6 +26,26 @@ import { orderbydata, orderbydata1D } from '../global/sort';
 import json from '../global/json';
 import { update, genarate } from '../global/format';
 
+// 筛选统一读取富文本和合并主单元格，只返回临时值，不改写报表数据。
+function getFilterCell(rowIndex, columnIndex) {
+    let cell = Store.flowdata[rowIndex] && Store.flowdata[rowIndex][columnIndex];
+    if (cell && isRealNull(cell.v) && cell.mc) {
+        const merge = cell.mc;
+        const mainCell = Store.flowdata[merge.r] && Store.flowdata[merge.r][merge.c];
+        if (mainCell) cell = mainCell;
+    }
+    if (!cell) return cell;
+    const format = cell.ct;
+    if (isRealNull(cell.v) && format && format.t === 'inlineStr' && Array.isArray(format.s)) {
+        const text = format.s.map(part => part && part.v != null ? String(part.v) : '').join('');
+        return Object.assign({}, cell, { v: text, m: cell.m == null ? text : cell.m });
+    }
+    if (cell.v != null && cell.m == null) {
+        return Object.assign({}, cell, { m: String(cell.v) });
+    }
+    return cell;
+}
+
 //筛选配置状态
 function labelFilterOptionState($top, optionstate, rowhidden, caljs, notSave, str, edr, cindex, stc, edc) {
     if (optionstate) {
@@ -521,7 +541,7 @@ function initialFilterHandler(){
                     continue;
                 }
 
-                let cell = Store.flowdata[r][cindex];
+                let cell = getFilterCell(r, cindex);
 
                 if(cell != null && !isRealNull(cell.v) && cell.ct != null && cell.ct.t == "d" ){ //单元格是日期
                     let v = update("YYYY-MM-DD", cell.v);
@@ -552,13 +572,7 @@ function initialFilterHandler(){
                 }
                 else{
                     let v, m;
-                    if((cell == null || isRealNull(cell.v)) && cell?.mc){
-                        const { r, c } = cell.mc;
-                        const mainCell = Store.flowdata[r][c];
-                        v = mainCell.v;
-                        m = mainCell.m;
-                    }
-                    else if(cell == null || isRealNull(cell.v)){
+                    if(cell == null || isRealNull(cell.v)){
                         v = null;
                         m = null;
                     }
@@ -1441,7 +1455,7 @@ function initialFilterHandler(){
                     continue;
                 }
 
-                let cell = Store.flowdata[r][cindex];
+                let cell = getFilterCell(r, cindex);
                 
                 if (value == "cellnull") { //单元格为空
                     if(cell != null && !isRealNull(cell.v)){
@@ -1740,15 +1754,10 @@ function initialFilterHandler(){
                     continue;
                 }
 
-                let cell = Store.flowdata[r][cindex];
+                let cell = getFilterCell(r, cindex);
 
                 let value;
-                if((cell == null || isRealNull(cell.v)) && cell?.mc){
-                    const { r, c } = cell.mc
-                    const mainCell = Store.flowdata[r][c]
-                    value = mainCell.v + "#$$$#" + mainCell.m;
-                }
-                else if(cell == null || isRealNull(cell.v)){
+                if(cell == null || isRealNull(cell.v)){
                     value = "null#$$$#null";
                 }
                 else if(cell.ct != null && cell.ct.t == "d"){
