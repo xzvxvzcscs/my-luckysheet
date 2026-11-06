@@ -187,11 +187,14 @@ function createFilter() {
     $('#luckysheet-filter-selected-sheet' + Store.currentSheetIndex + ', #luckysheet-filter-options-sheet' + Store.currentSheetIndex).remove();
 
     let last = Store.luckysheet_select_save[0];
+    // API 恢复的选区可能没有焦点，合并区域导航仍需要有效的行列坐标。
+    if (last["row_focus"] == null) last["row_focus"] = last["row"][0];
+    if (last["column_focus"] == null) last["column_focus"] = last["column"][0];
     if (last["row"][0] == last["row"][1] && last["column"][0] == last["column"][1]) {
         let st_c, ed_c, curR = last["row"][1];
 
         for (let c = 0; c < Store.flowdata[curR].length; c++) {
-            let cell = Store.flowdata[curR][c];
+            let cell = getFilterCell(curR, c);
 
             if (cell != null && !isRealNull(cell.v)) {
                 if (st_c == null) {
@@ -204,11 +207,19 @@ function createFilter() {
             }
         }
 
+        if (st_c == null) {
+            st_c = last["column"][0];
+        }
         if (ed_c == null) {
             ed_c = Store.flowdata[curR].length - 1;
         }
 
-        Store.luckysheet_select_save = [{ "row": [curR, curR], "column": [st_c, ed_c] }];
+        Store.luckysheet_select_save = [{
+            "row": [curR, curR],
+            "column": [st_c, ed_c],
+            "row_focus": curR,
+            "column_focus": st_c
+        }];
         selectHightlightShow();
 
         Store.luckysheet_shiftpositon = $.extend(true, {}, last);
