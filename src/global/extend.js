@@ -1237,7 +1237,8 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
         }
     }
 
-    if (newFilterObj != null && newFilterObj.filter != null) {
+    // 删行时由下方统一平移原隐藏配置，避免藏行号重复平移
+    if (type != "row" && newFilterObj != null && newFilterObj.filter != null) {
         if (cfg["rowhidden"] == null) {
             cfg["rowhidden"] = {};
         }
