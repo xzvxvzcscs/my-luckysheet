@@ -394,8 +394,33 @@ function jfrefreshrange(data, range, cdformat) {
     }
 }
 
+function recalculateRowColumnFormulas(changes) {
+    if (!changes.length) return;
+
+    formula.execFunctionGlobalData = {};
+    formula.execFunctionGroupForce(true);
+    formula.groupValuesRefresh();
+}
+
+function applyRowColumnFormulaChanges(changes, undo = false, recalculate = true) {
+    formula.cellTextToIndexList = {};
+    for (const { sheetIndex, r, c, before, after } of changes) {
+        const sheet = Store.luckysheetfile[getSheetIndex(sheetIndex)];
+        const data = sheet?.index == Store.currentSheetIndex ? Store.flowdata : sheet?.data;
+        const cell = data?.length ? data[r]?.[c] : sheet?.celldata?.find(item => item.r === r && item.c === c)?.v;
+        if (cell?.f !== (undo ? after : before)) continue;
+
+        cell.f = undo ? before : after;
+        server.saveParam("v", sheetIndex, cell, { r, c });
+    }
+    if (recalculate && changes.length) {
+        recalculateRowColumnFormulas(changes);
+        luckysheetrefreshgrid();
+    }
+}
+
 //删除、增加行列 刷新表格
-function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf, af, freezen, dataVerification, hyperlink){
+function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf, af, freezen, dataVerification, hyperlink, formulaChanges = [], undo = false){
     let file = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
     collaborativeEditBox();
     //merge改变对应的单元格值改变
@@ -447,6 +472,7 @@ function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf,
 
         Store.jfredo.push({
             "type": ctrlType,
+            "formulaChanges": formulaChanges,
             "sheetIndex": Store.currentSheetIndex,
             "data": Store.flowdata,
             "curData": data,
@@ -548,6 +574,8 @@ function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf,
         server.saveParam("v", Store.currentSheetIndex, Store.flowdata[mcData_r][mcData_c], { "r": mcData_r, "c": mcData_c });
     }
 
+    applyRowColumnFormulaChanges(formulaChanges, undo, false);
+
     //公式链中公式范围改变对应单元格值的改变
     if(calc.length > 0){
         // 取消execFunctionGroupData，改用execFunctionGlobalData
@@ -618,6 +646,8 @@ function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf,
     hyperlinkCtrl.hyperlink = hyperlink;
     file.hyperlink = hyperlink;
     server.saveParam("all", Store.currentSheetIndex, file.hyperlink, { "k": "hyperlink" });
+
+    recalculateRowColumnFormulas(formulaChanges);
 
     //行高、列宽刷新
     jfrefreshgrid_rhcw(Store.flowdata.length, Store.flowdata[0].length);
@@ -1340,6 +1370,7 @@ export {
     jfrefreshgrid,
     jfrefreshgridall,
     jfrefreshrange,
+    applyRowColumnFormulaChanges,
     jfrefreshgrid_adRC,
     jfrefreshgrid_deleteCell,
     jfrefreshgrid_pastcut,

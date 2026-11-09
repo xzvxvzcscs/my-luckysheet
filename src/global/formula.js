@@ -2236,7 +2236,7 @@ const luckysheetformula = {
     rightparam: function(txt, step) {
         return this.updateparam("r", txt, step);
     },
-    functionStrChange: function(txt, type, rc, orient, stindex, step) {
+    functionStrChange: function(txt, type, rc, orient, stindex, step, context) {
         let _this = this;
 
         if (_this.operatorjson == null) {
@@ -2270,7 +2270,12 @@ const luckysheetformula = {
         while (i < funcstack.length) {
             let s = funcstack[i];
 
-            if (s == "(" && matchConfig.dquote == 0) {
+            if (s == "'" && matchConfig.dquote == 0) {
+                matchConfig.squote = 1 - matchConfig.squote;
+                str += s;
+            } else if (matchConfig.squote) {
+                str += s;
+            } else if (s == "(" && matchConfig.dquote == 0) {
                 matchConfig.bracket += 1;
 
                 if (str.length > 0) {
@@ -2282,7 +2287,7 @@ const luckysheetformula = {
                 str = "";
             } else if (s == ")" && matchConfig.dquote == 0) {
                 matchConfig.bracket -= 1;
-                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + ")";
+                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, context) + ")";
                 str = "";
             } else if (s == '"' && matchConfig.squote == 0) {
                 if (matchConfig.dquote > 0) {
@@ -2294,11 +2299,11 @@ const luckysheetformula = {
                     str += '"';
                 }
             } else if (s == "," && matchConfig.dquote == 0) {
-                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + ",";
+                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, context) + ",";
                 str = "";
             } else if (s == "&" && matchConfig.dquote == 0) {
                 if (str.length > 0) {
-                    function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + "&";
+                    function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, context) + "&";
                     str = "";
                 } else {
                     function_str += "&";
@@ -2321,7 +2326,7 @@ const luckysheetformula = {
 
                 if (s + s_next in _this.operatorjson) {
                     if (str.length > 0) {
-                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + s + s_next;
+                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, context) + s + s_next;
                         str = "";
                     } else {
                         function_str += s + s_next;
@@ -2336,7 +2341,7 @@ const luckysheetformula = {
                     str += s;
                 } else {
                     if (str.length > 0) {
-                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + s;
+                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, context) + s;
                         str = "";
                     } else {
                         function_str += s;
@@ -2347,8 +2352,11 @@ const luckysheetformula = {
             }
 
             if (i == funcstack.length - 1) {
-                if (!str.includes("!") && _this.iscelldata($.trim(str))) {
-                    function_str += _this.functionStrChange_range($.trim(str), type, rc, orient, stindex, step);
+                if ((context || !str.includes("!")) && _this.iscelldata($.trim(str))) {
+                    const reference = $.trim(str);
+                    const adjusted = _this.functionStrChange_range(reference, type, rc, orient, stindex, step, context);
+                    if (context && adjusted !== reference) context.changed = true;
+                    function_str += adjusted;
                 } else {
                     function_str += $.trim(str);
                 }
@@ -2359,18 +2367,19 @@ const luckysheetformula = {
 
         return function_str;
     },
-    functionStrChange_range: function(txt, type, rc, orient, stindex, step) {
+    functionStrChange_range: function(txt, type, rc, orient, stindex, step, context) {
         let _this = this;
 
-        let val = txt.split("!"),
-            rangetxt,
-            prefix = "";
+        const separator = txt.indexOf("!");
+        const prefix = txt.slice(0, separator + 1);
+        let rangetxt = txt.slice(separator + 1);
 
-        if (val.length > 1) {
-            rangetxt = val[1];
-            prefix = val[0] + "!";
-        } else {
-            rangetxt = val[0];
+        if (context) {
+            const { source, target } = context;
+            const sheetName = prefix.slice(0, -1).replace(/^'(.*)'$/, "$1").replace(/''/g, "'");
+            if (prefix ? sheetName !== target.name : source !== target) {
+                return txt;
+            }
         }
 
         let r1, r2, c1, c2;
@@ -2405,6 +2414,13 @@ const luckysheetformula = {
             let freezonFuc1 = _this.isfreezonFuc(rangetxt[1]);
             $row1 = freezonFuc1[0] ? "$" : "";
             $col1 = freezonFuc1[1] ? "$" : "";
+        }
+
+        if (context) {
+            const last = rc == "row" ? r2 : c2;
+            if (isNaN(last) || last < stindex || (type == "add" && orient == "rightbottom" && last == stindex)) {
+                return txt;
+            }
         }
 
         if (type == "del") {
