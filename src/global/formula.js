@@ -1361,7 +1361,11 @@ const luckysheetformula = {
         // 下拉输入先在副本中格式化和计算，未匹配时保留原值、公式链及同步状态。
         if (dropdownRule && getObjType(curv) === "object") curv = $.extend(true, {}, curv);
         let isPrevInline = isInlineStringCell(curv);
-        let isCurInline = inputText.slice(0, 1) != "=" && inputHtml.substr(0, 5) == "<span";
+        const $spans = $input.find("span");
+        // 公式展示标签不代表用户设置了富文本，删除等号后仍按普通输入解析。
+        const isFormulaText = !isPrevInline && $spans.length > 0
+            && $spans.filter('[class*="luckysheet-formula-"]').length === $spans.length;
+        let isCurInline = !isFormulaText && inputText.slice(0, 1) != "=" && inputHtml.substr(0, 5) == "<span";
 
         let isCopyVal = false;
         if (!isCurInline && inputText && inputText.length > 0) {
@@ -1436,8 +1440,8 @@ const luckysheetformula = {
                 const sameContent = isText
                     ? value === curv.v || value === curv.m
                     : value == curv.v || value == curv.m;
-                // 公式重新提交时仍需计算，日期覆盖公式时也不能沿用旧缓存值。
-                if (getObjType(curv) == "object" && (value == curv.f || (dateInput == null || curv.f == null) && sameContent)) {
+                // 原公式改为普通值时，即使与缓存结果相同也必须写入，才能清除公式。
+                if (getObjType(curv) == "object" && (value == curv.f || curv.f == null && sameContent)) {
                     _this.cancelNormalSelected();
                     return;
                 } else if (value == curv) {
