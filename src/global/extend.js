@@ -1,6 +1,6 @@
 import editor from "./editor";
 import formula from "./formula";
-import { applyRowColumnFormulaChanges, jfrefreshgrid_adRC, jfrefreshgrid_deleteCell, jfrefreshgrid_rhcw } from "./refresh";
+import { jfrefreshgrid_adRC, jfrefreshgrid_deleteCell, jfrefreshgrid_rhcw } from "./refresh";
 import { datagridgrowth, getcellFormula } from "./getdata";
 import { setcellvalue } from "./setdata";
 import conditionformat from "../controllers/conditionformat";
@@ -11,26 +11,6 @@ import { checkProtectionAuthorityNormal, checkProtectionNotEnable } from "../con
 import { getSheetIndex } from "../methods/get";
 import Store from "../store";
 import method from "./method";
-
-function getCrossSheetFormulaChanges(target, type, axis, direction, index, count) {
-    const changes = [];
-    for (const source of Store.luckysheetfile) {
-        if (source === target) continue;
-
-        const data = source.index == Store.currentSheetIndex ? Store.flowdata : source.data;
-        const cells = data?.length ? source.calcChain : source.celldata;
-        for (const entry of cells || []) {
-            const { r, c, v } = typeof entry === "string" ? JSON.parse(entry) : entry;
-            const before = (data?.length ? data[r]?.[c] : v)?.f;
-            if (!before?.includes("!")) continue;
-
-            const context = { source, target, changed: false };
-            const after = "=" + formula.functionStrChange(before, type, axis, direction, index, count, context);
-            if (context.changed) changes.push({ sheetIndex: source.index, r, c, before, after });
-        }
-    }
-    return changes;
-}
 
 /**
  * 增加行列
@@ -141,7 +121,7 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
                 if(!calc_funcStr) continue
 
             if (type == "row") {
-                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "row", direction, index, value, { source: file, target: file });
+                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "row", direction, index, value);
 
                 if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                     d[calc_r][calc_c].f = functionStr;
@@ -159,7 +139,7 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
 
                 newCalcChain.push(calc);
             } else if (type == "column") {
-                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "col", direction, index, value, { source: file, target: file });
+                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "col", direction, index, value);
 
                 if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                     d[calc_r][calc_c].f = functionStr;
@@ -875,8 +855,6 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
         }
     }
 
-    const formulaChanges = getCrossSheetFormulaChanges(file, "add", type == "row" ? "row" : "col", direction, index, value);
-
     // 修改当前sheet页时刷新
     if (file.index == Store.currentSheetIndex) {
         jfrefreshgrid_adRC(
@@ -891,19 +869,17 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
             newFreezen,
             newDataVerification,
             newHyperlink,
-            formulaChanges,
         );
     } else {
         file.data = d;
         file.config = cfg;
         file.calcChain = newCalcChain;
-        file.filter = newFilterObj?.filter ?? null;
-        file.filter_select = newFilterObj?.filter_select ?? null;
+        file.filter = newFilterObj.filter;
+        file.filter_select = newFilterObj.filter_select;
         file.luckysheet_conditionformat_save = newCFarr;
         file.luckysheet_alternateformat_save = newAFarr;
         file.dataVerification = newDataVerification;
         file.hyperlink = newHyperlink;
-        applyRowColumnFormulaChanges(formulaChanges);
     }
 
     let range = null;
@@ -1101,7 +1077,7 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
 
             if (type == "row") {
                 if (calc_r < st || calc_r > ed) {
-                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "row", null, st, slen, { source: file, target: file });
+                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "row", null, st, slen);
 
                     if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                         d[calc_r][calc_c].f = functionStr;
@@ -1115,7 +1091,7 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
                 }
             } else if (type == "column") {
                 if (calc_c < st || calc_c > ed) {
-                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "col", null, st, slen, { source: file, target: file });
+                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "col", null, st, slen);
 
                     if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                         d[calc_r][calc_c].f = functionStr;
@@ -1728,8 +1704,6 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
        }
     }
 
-    const formulaChanges = getCrossSheetFormulaChanges(file, "del", type == "row" ? "row" : "col", null, st, slen);
-
     // 修改当前sheet页时刷新
     if (file.index == Store.currentSheetIndex) {
         jfrefreshgrid_adRC(
@@ -1744,19 +1718,17 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
             newFreezen,
             newDataVerification,
             newHyperlink,
-            formulaChanges,
         );
     } else {
         file.data = d;
         file.config = cfg;
         file.calcChain = newCalcChain;
-        file.filter = newFilterObj?.filter ?? null;
-        file.filter_select = newFilterObj?.filter_select ?? null;
+        file.filter = newFilterObj.filter;
+        file.filter_select = newFilterObj.filter_select;
         file.luckysheet_conditionformat_save = newCFarr;
         file.luckysheet_alternateformat_save = newAFarr;
         file.dataVerification = newDataVerification;
         file.hyperlink = newHyperlink;
-        applyRowColumnFormulaChanges(formulaChanges);
     }
 }
 
