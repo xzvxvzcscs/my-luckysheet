@@ -4511,7 +4511,21 @@ const menuButton = {
 
         canvasborder.beginPath();
 
-        if (type.indexOf("Medium") > -1) {
+        if (type == "Double") {
+            // 两条细实线之间保留一个像素间隙，横向和纵向边框使用相同线宽。
+            if (hv == "h") {
+                canvasborder.moveTo(m_st, m_ed - 1);
+                canvasborder.lineTo(line_st, line_ed - 1);
+                canvasborder.moveTo(m_st, m_ed + 1);
+                canvasborder.lineTo(line_st, line_ed + 1);
+            } else {
+                canvasborder.moveTo(m_st - 1, m_ed);
+                canvasborder.lineTo(line_st - 1, line_ed);
+                canvasborder.moveTo(m_st + 1, m_ed);
+                canvasborder.lineTo(line_st + 1, line_ed);
+            }
+            canvasborder.lineWidth = 1;
+        } else if (type.indexOf("Medium") > -1) {
             if (hv == "h") {
                 canvasborder.moveTo(m_st, m_ed - 0.5);
                 canvasborder.lineTo(line_st, line_ed - 0.5);
