@@ -475,9 +475,22 @@ const luckysheetFreezen = {
         $("#luckysheet-freezebar-horizontal").show().find(".luckysheet-freezebar-horizontal-handle").css({ "top": top }).end().find(".luckysheet-freezebar-horizontal-drop").css({ "top": top });
 
     },
-    createAssistCanvas: function(){
+    createAssistCanvas: function(reuse = false){
         let _this = this;
-        _this.removeAssistCanvas();
+        if (reuse) {
+            // 3、4、7 是原生画布区域编号，分别对应同时冻结行列时的左上、右上和左下区域。
+            // h 对应仅冻结行的顶部区域，v 对应仅冻结列的左侧区域；主画布单独保留。
+            const canvasIds = _this.freezenhorizontaldata != null && _this.freezenverticaldata != null
+                ? ["freezen_3", "freezen_4", "freezen_7"]
+                : _this.freezenhorizontaldata != null ? ["freezen_h"]
+                : _this.freezenverticaldata != null ? ["freezen_v"] : [];
+            $("#luckysheet-grid-window-1 > canvas").not("#luckysheetTableContent").filter(function() {
+                return !canvasIds.includes(this.id);
+            }).remove();
+            $("#luckysheet-cell-selected").css("z-index", 15);
+        } else {
+            _this.removeAssistCanvas();
+        }
 
         if (_this.freezenverticaldata != null || _this.freezenhorizontaldata != null) {
             let freezen_horizon_px, freezen_horizon_ed, freezen_horizon_scrollTop;
@@ -496,11 +509,11 @@ const luckysheetFreezen = {
                 freezen_vertical_scrollTop = _this.freezenverticaldata[2];
 
                 //3
-                _this.createCanvas("freezen_3", freezen_vertical_px - freezen_vertical_scrollTop, freezen_horizon_px - freezen_horizon_scrollTop + 1, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1);
+                _this.createCanvas("freezen_3", freezen_vertical_px - freezen_vertical_scrollTop, freezen_horizon_px - freezen_horizon_scrollTop + 1, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1, reuse);
                 //4
-                _this.createCanvas("freezen_4", drawWidth - freezen_vertical_px + freezen_vertical_scrollTop, freezen_horizon_px - freezen_horizon_scrollTop + 1, freezen_vertical_px - freezen_vertical_scrollTop + Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1);
+                _this.createCanvas("freezen_4", drawWidth - freezen_vertical_px + freezen_vertical_scrollTop, freezen_horizon_px - freezen_horizon_scrollTop + 1, freezen_vertical_px - freezen_vertical_scrollTop + Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1, reuse);
                 //7
-                _this.createCanvas("freezen_7", freezen_vertical_px - freezen_vertical_scrollTop, drawHeight - freezen_horizon_px + freezen_horizon_scrollTop - Store.columnHeaderHeight, Store.rowHeaderWidth - 1, freezen_horizon_px - freezen_horizon_scrollTop + Store.columnHeaderHeight - 1);
+                _this.createCanvas("freezen_7", freezen_vertical_px - freezen_vertical_scrollTop, drawHeight - freezen_horizon_px + freezen_horizon_scrollTop - Store.columnHeaderHeight, Store.rowHeaderWidth - 1, freezen_horizon_px - freezen_horizon_scrollTop + Store.columnHeaderHeight - 1, reuse);
             }
             //水平freezen
             else if (_this.freezenhorizontaldata != null) {
@@ -508,7 +521,7 @@ const luckysheetFreezen = {
                 freezen_horizon_ed = _this.freezenhorizontaldata[1];
                 freezen_horizon_scrollTop = _this.freezenhorizontaldata[2];
 
-                _this.createCanvas("freezen_h", drawWidth, freezen_horizon_px - freezen_horizon_scrollTop + 1, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1);
+                _this.createCanvas("freezen_h", drawWidth, freezen_horizon_px - freezen_horizon_scrollTop + 1, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1, reuse);
             }
             //垂直freezen
             else if (_this.freezenverticaldata != null) {
@@ -516,18 +529,21 @@ const luckysheetFreezen = {
                 freezen_vertical_ed = _this.freezenverticaldata[1];
                 freezen_vertical_scrollTop = _this.freezenverticaldata[2];
 
-                _this.createCanvas("freezen_v", freezen_vertical_px - freezen_vertical_scrollTop, drawHeight, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1);
+                _this.createCanvas("freezen_v", freezen_vertical_px - freezen_vertical_scrollTop, drawHeight, Store.rowHeaderWidth - 1, Store.columnHeaderHeight - 1, reuse);
             }
 
             _this.scrollAdapt();
         }
     },
-    createCanvas: function(id, width, height, left, top){
-        let c = $("<canvas/>").appendTo("#luckysheet-grid-window-1").attr({
-            "id": id, 
-            "width": Math.ceil(width * Store.devicePixelRatio), 
-            "height": Math.ceil(height * Store.devicePixelRatio)
-        }).css({
+    createCanvas: function(id, width, height, left, top, reuse = false){
+        let canvas = reuse ? $("#luckysheet-grid-window-1 > #" + id) : $();
+        if (!canvas.length) canvas = $("<canvas/>").appendTo("#luckysheet-grid-window-1").attr("id", id);
+        const pixelWidth = Math.ceil(width * Store.devicePixelRatio);
+        const pixelHeight = Math.ceil(height * Store.devicePixelRatio);
+        // 重设画布尺寸会清空像素；尺寸未变时保留内容，避免公式重算期间冻结区域空白。
+        if (canvas[0].width !== pixelWidth) canvas.attr("width", pixelWidth);
+        if (canvas[0].height !== pixelHeight) canvas.attr("height", pixelHeight);
+        canvas.css({
             "user-select": "none",
             "postion": "absolute",
             "left": left, 
