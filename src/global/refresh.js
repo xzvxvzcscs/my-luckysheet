@@ -1106,7 +1106,7 @@ function jfrefreshgrid_rhcw(rowheight, colwidth, isRefreshCanvas=true){
         luckysheetFreezen.saveFreezen(freezenhorizontaldata, top, freezenverticaldata, left);
         luckysheetFreezen.createFreezenHorizontal(freezenhorizontaldata, top);
         luckysheetFreezen.createFreezenVertical(freezenverticaldata, left);
-        luckysheetFreezen.createAssistCanvas();
+        luckysheetFreezen.createAssistCanvas(true);
     }
     else if(luckysheetFreezen.freezenhorizontaldata != null){
         let row_st = luckysheetFreezen.freezenhorizontaldata[1] - 1;
@@ -1123,7 +1123,7 @@ function jfrefreshgrid_rhcw(rowheight, colwidth, isRefreshCanvas=true){
 
         luckysheetFreezen.saveFreezen(freezenhorizontaldata, top, null, null);
         luckysheetFreezen.createFreezenHorizontal(freezenhorizontaldata, top);
-        luckysheetFreezen.createAssistCanvas();
+        luckysheetFreezen.createAssistCanvas(true);
     }
     else if(luckysheetFreezen.freezenverticaldata != null){
         let col_st = luckysheetFreezen.freezenverticaldata[1] - 1;
@@ -1140,7 +1140,7 @@ function jfrefreshgrid_rhcw(rowheight, colwidth, isRefreshCanvas=true){
 
         luckysheetFreezen.saveFreezen(null, null, freezenverticaldata, left);
         luckysheetFreezen.createFreezenVertical(freezenverticaldata, left);
-        luckysheetFreezen.createAssistCanvas();
+        luckysheetFreezen.createAssistCanvas(true);
     }
     else{
         //有筛选标志时，同步筛选按钮和筛选范围位置
