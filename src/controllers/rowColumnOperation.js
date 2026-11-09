@@ -29,6 +29,32 @@ import Store from "../store";
 import luckysheetConfigsetting from "./luckysheetConfigsetting";
 import luckysheetFreezen from "./freezen";
 
+function deleteSelectedRows(start, end) {
+    if (!checkProtectionAuthorityNormal(Store.currentSheetIndex, "deleteRows")) return;
+
+    const sheet = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
+    const hiddenRows = sheet.filter_select && sheet.filter ? sheet.config.rowhidden || {} : {};
+    const ranges = [];
+    let rangeEnd = null;
+
+    // 筛选后的相邻可见行可能并不连续，先记录区间，再从下往上删除，保留隐藏数据。
+    for (let row = end; row >= start; row--) {
+        if (hiddenRows[row] != null) {
+            if (rangeEnd !== null) ranges.push([row + 1, rangeEnd]);
+            rangeEnd = null;
+        } else if (rangeEnd === null) {
+            rangeEnd = row;
+        }
+    }
+    if (rangeEnd !== null) ranges.push([start, rangeEnd]);
+
+    for (const [rangeStart, rangeEnd] of ranges) {
+        // 每段沿用原删除钩子和结构操作，保证业务坐标、权限和协同数据同步调整。
+        if (!method.createHookFunction("rowDeleteBefore", rangeStart, rangeEnd, "row")) return;
+        luckysheetdeletetable("row", rangeStart, rangeEnd);
+    }
+}
+
 export function rowColumnOperationInitial() {
     //表格行标题 mouse事件
     $("#luckysheet-rows-h")
@@ -1762,6 +1788,11 @@ export function rowColumnOperationInitial() {
         let st_index = Store.luckysheet_select_save[0][Store.luckysheetRightHeadClickIs][0],
             ed_index = Store.luckysheet_select_save[0][Store.luckysheetRightHeadClickIs][1];
 
+        if (Store.luckysheetRightHeadClickIs === "row") {
+            deleteSelectedRows(st_index, ed_index);
+            return;
+        }
+
         if(!method.createHookFunction("rowDeleteBefore", st_index, ed_index, Store.luckysheetRightHeadClickIs)){
         	return; 
 
@@ -1794,10 +1825,7 @@ export function rowColumnOperationInitial() {
         let st_index = Store.luckysheet_select_save[0].row[0],
             ed_index = Store.luckysheet_select_save[0].row[1];
 
-		if(!method.createHookFunction("rowDeleteBefore", st_index, ed_index, 'row')){
-			return; 
-		}
-        luckysheetdeletetable('row', st_index, ed_index);
+        deleteSelectedRows(st_index, ed_index);
     })
     $("#luckysheet-delCols").click(function (event) {
 
