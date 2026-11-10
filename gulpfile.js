@@ -226,7 +226,10 @@ async function core() {
         banner: { js: banner },
         target: ['es2015'],
         sourcemap: true,
-        outfile: 'dist/luckysheet.umd.js',
+        // outfile: 'dist/luckysheet.umd.js',
+        outdir: 'dist',
+        entryNames: 'luckysheet-[hash].umd',
+        metafile: true,
       })
 }
 
