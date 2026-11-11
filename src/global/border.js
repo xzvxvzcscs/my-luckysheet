@@ -5,6 +5,13 @@ import Store from '../store';
 //获取表格边框数据计算值
 function getBorderInfoComputeRange(dataset_row_st,dataset_row_ed,dataset_col_st,dataset_col_ed,sheetIndex) {
     let borderInfoCompute = {};
+    const cellBorderKeys = new Set();
+    const adjacentSides = [
+        ['l', 0, -1, 'r'],
+        ['r', 0, 1, 'l'],
+        ['t', -1, 0, 'b'],
+        ['b', 1, 0, 't'],
+    ];
 
     let cfg, data; 
     if(sheetIndex == null){
@@ -23,6 +30,7 @@ function getBorderInfoComputeRange(dataset_row_st,dataset_row_ed,dataset_col_st,
             let rangeType = borderInfo[i].rangeType;
 
             if(rangeType == "range"){
+                cellBorderKeys.clear();
                 let borderType = borderInfo[i].borderType;
                 let borderColor = borderInfo[i].color;
                 let borderStyle = borderInfo[i].style;
@@ -859,13 +867,29 @@ function getBorderInfoComputeRange(dataset_row_st,dataset_row_ed,dataset_col_st,
 
                 let bd_r = value.row_index, bd_c = value.col_index;
 
-                if(bd_r < dataset_row_st || bd_r > dataset_row_ed || bd_c < dataset_col_st || bd_c > dataset_col_ed){
+                // 多读取相邻一格，避免滚动或冻结后丢失视口边缘另一侧的双实线。
+                if(bd_r < dataset_row_st - 1 || bd_r > dataset_row_ed + 1 || bd_c < dataset_col_st - 1 || bd_c > dataset_col_ed + 1){
                     continue;
                 }
 
                 if (cfg["rowhidden"] != null && cfg["rowhidden"][bd_r] != null) {
                     continue;
                 }
+
+                const cellKey = bd_r + "_" + bd_c;
+                // 同批单格样式的共用边保留双实线，范围操作及同格重设仍按原顺序覆盖。
+                if(!cellBorderKeys.has(cellKey)){
+                    for(const [side, rowOffset, columnOffset, opposite] of adjacentSides){
+                        if(value[side] == null || Number(value[side].style) !== 1) continue;
+                        const adjacentKey = (Number(bd_r) + rowOffset) + "_" + (Number(bd_c) + columnOffset);
+                        if(!cellBorderKeys.has(adjacentKey)) continue;
+                        const adjacentBorder = borderInfoCompute[adjacentKey] && borderInfoCompute[adjacentKey][opposite];
+                        if(adjacentBorder == null || Number(adjacentBorder.style) !== 7) continue;
+                        if(value === borderInfo[i].value) value = { ...value };
+                        value[side] = { color: adjacentBorder.color, style: adjacentBorder.style };
+                    }
+                }
+                cellBorderKeys.add(cellKey);
 
                 if(value.l != null || value.r != null || value.t != null || value.b != null){
                     if(borderInfoCompute[bd_r + "_" + bd_c] == null){
