@@ -429,6 +429,8 @@ const method = {
         sheetmanage.changeSheet(Store.luckysheetfile[0].index);
     },
     destroy:function(){
+        // 销毁时使旧加载、缓存和绘制回调失效，避免操作后续工作簿。
+        Store.workbookVersion = (Store.workbookVersion || 0) + 1; // 先更换批次号，再拆除表格；所有拿着旧批次号的回调都会自动失效。
         $("#" + Store.container).empty();
         $("body > .luckysheet-cols-menu").remove();
 

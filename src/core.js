@@ -47,6 +47,7 @@ luckysheet = common_extend(api, luckysheet);
 //创建luckysheet表格
 luckysheet.create = function (setting) {
     method.destroy();
+    const workbookVersion = Store.workbookVersion; // 记下本次创建的批次，接口回来时才能认出它是否仍属于当前表格。
     // Store original parameters for api: toJson
     Store.toJsonOptions = {};
     for (let c in setting) {
@@ -168,6 +169,7 @@ luckysheet.create = function (setting) {
         initialWorkBook();
     } else {
         $.post(loadurl, { gridKey: server.gridKey }, function (d) {
+            if (workbookVersion !== Store.workbookVersion) return; // 用户已经离开或重建表格时，这份旧响应就到此结束，不能再写入全局数据。
             let data = new Function("return " + d)();
             Store.luckysheetfile = data;
 

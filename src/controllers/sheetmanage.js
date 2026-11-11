@@ -849,6 +849,7 @@ const sheetmanage = {
         }
     },
     initialjfFile: function(menu, title) {
+        const workbookVersion = Store.workbookVersion; // 这一轮绘制、缓存读取和依赖页加载共用同一个批次号。
         let _this = this;
 
         Store.luckysheetfile.forEach(sheet => {
@@ -912,6 +913,7 @@ const sheetmanage = {
         luckysheetcreatedom(colwidth, rowheight, data, menu, title);
 
         setTimeout(function() {
+            if (workbookVersion !== Store.workbookVersion) return; // 延迟绘制开始前确认表格还在，避免对已经移除的画布调用 getContext。
             tooltip.createHoverTip(
                 "#luckysheet_info_detail",
                 ".luckysheet_info_detail_back, .luckysheet_info_detail_input, .luckysheet_info_detail_update",
@@ -941,11 +943,13 @@ const sheetmanage = {
             let cahce_key = key + "__qkcache";
 
             let ini = function() {
+                if (workbookVersion !== Store.workbookVersion) return; // 缓存读取结束后，只有原工作簿仍有效才继续创建 Sheet。
                 file["load"] = "1";
 
                 _this.createSheet();
 
                 let execF = function() {
+                    if (workbookVersion !== Store.workbookVersion) return; // 依赖页准备好后再核对归属，合并区、公式和选区只能恢复到原工作簿。
                     _this.mergeCalculation(file["index"]);
                     _this.setSheetParam(false);
                     // editor.webWorkerFlowDataCache(Store.flowdata);//worker存数据
@@ -999,11 +1003,11 @@ const sheetmanage = {
 
                     if (luckysheetConfigsetting.pointEdit) {
                         setTimeout(function() {
-                            Store.loadingObj.close();
+                            if (workbookVersion === Store.workbookVersion) Store.loadingObj.close(); // 只关闭自己这轮加载的遮罩，旧回调不能把新表格的加载提示提前关掉。
                         }, 0);
                     } else {
                         setTimeout(function() {
-                            Store.loadingObj.close();
+                            if (workbookVersion === Store.workbookVersion) Store.loadingObj.close(); // 只关闭自己这轮加载的遮罩，旧回调不能把新表格的加载提示提前关掉。
                         }, 500);
                     }
                 };
@@ -1048,6 +1052,7 @@ const sheetmanage = {
                         return;
                     }
                     $.post(loadSheetUrl, { gridKey: server.gridKey, index: sheetindex.join(",") }, function(d) {
+                        if (workbookVersion !== Store.workbookVersion) return; // 依赖页响应晚到时直接丢弃，不能写进新表格的单元格和公式链。
                         let dataset = new Function("return " + d)();
 
                         for (let item in dataset) {
@@ -1073,6 +1078,7 @@ const sheetmanage = {
 
             try {
                 localforage.getItem(cahce_key).then(function(readValue) {
+                    if (workbookVersion !== Store.workbookVersion) return; // 缓存结果也会晚到，旧结果不能覆盖新工作簿的待恢复操作。
                     if (readValue != null) {
                         _this.CacheNotLoadControll = readValue;
                     }
