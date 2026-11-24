@@ -348,6 +348,12 @@ function collaborativeEditBox() {
 
     Store.cooperativeEdit.changeCollaborationSize.forEach(value => {
         if (value.i == Store.currentSheetIndex) {
+            const $collaborationBox = $("#luckysheet-multipleRange-show-" + value.id);
+            // 协同选区数据可能仍存在，但对应的提示框已被移除或尚未创建。
+            if (!$collaborationBox || $collaborationBox.length === 0) {
+                return;
+            }
+
             let count_col = value.v.column;//系统提示框所在的列范围
             let change_width = all_width[count_col[0]] -1 //提示框所在列号为0时要改变的宽
             if(value.v.column[0] !== 0)  {
@@ -446,9 +452,15 @@ function collaborativeEditBox() {
                     }
                 }
             }
-            $("#luckysheet-multipleRange-show-" + value.id).css({ "height": change_height, "width": change_width, "top": change_top + 'px', "left": change_left + 'px' })
-            let change_bottom = $("#luckysheet-multipleRange-show-" + value.id)[0].offsetHeight - 1
-            $("#luckysheet-multipleRange-show-" + value.id + ">.username").css({ "bottom": change_bottom + 'px' })
+            // 原先放大縮小後選區的代碼
+            // $("#luckysheet-multipleRange-show-" + value.id).css({ "height": change_height, "width": change_width, "top": change_top + 'px', "left": change_left + 'px' })
+            // let change_bottom = $("#luckysheet-multipleRange-show-" + value.id)[0].offsetHeight - 1
+            // $("#luckysheet-multipleRange-show-" + value.id + ">.username").css({ "bottom": change_bottom + 'px' });
+
+            // 修改後的代碼
+            $collaborationBox.css({ "height": change_height, "width": change_width, "top": change_top + 'px', "left": change_left + 'px' })
+            let change_bottom = $collaborationBox[0].offsetHeight - 1
+            $collaborationBox.children(".username").css({ "bottom": change_bottom + 'px' })
         }
     })
 }
