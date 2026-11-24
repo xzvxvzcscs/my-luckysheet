@@ -2240,7 +2240,7 @@ const luckysheetformula = {
     rightparam: function(txt, step) {
         return this.updateparam("r", txt, step);
     },
-    functionStrChange: function(txt, type, rc, orient, stindex, step) {
+    functionStrChange: function(txt, type, rc, orient, stindex, step, sheetContext) {
         let _this = this;
 
         if (_this.operatorjson == null) {
@@ -2274,7 +2274,16 @@ const luckysheetformula = {
         while (i < funcstack.length) {
             let s = funcstack[i];
 
-            if (s == "(" && matchConfig.dquote == 0) {
+            if (s == "'" && matchConfig.dquote == 0) {
+                str += s;
+                if (matchConfig.squote > 0 && funcstack[i + 1] == "'") {
+                    str += funcstack[++i];
+                } else {
+                    matchConfig.squote = matchConfig.squote > 0 ? 0 : 1;
+                }
+            } else if (matchConfig.squote > 0) {
+                str += s;
+            } else if (s == "(" && matchConfig.dquote == 0) {
                 matchConfig.bracket += 1;
 
                 if (str.length > 0) {
@@ -2286,7 +2295,7 @@ const luckysheetformula = {
                 str = "";
             } else if (s == ")" && matchConfig.dquote == 0) {
                 matchConfig.bracket -= 1;
-                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + ")";
+                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, sheetContext) + ")";
                 str = "";
             } else if (s == '"' && matchConfig.squote == 0) {
                 if (matchConfig.dquote > 0) {
@@ -2298,11 +2307,11 @@ const luckysheetformula = {
                     str += '"';
                 }
             } else if (s == "," && matchConfig.dquote == 0) {
-                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + ",";
+                function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, sheetContext) + ",";
                 str = "";
             } else if (s == "&" && matchConfig.dquote == 0) {
                 if (str.length > 0) {
-                    function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + "&";
+                    function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, sheetContext) + "&";
                     str = "";
                 } else {
                     function_str += "&";
@@ -2325,7 +2334,7 @@ const luckysheetformula = {
 
                 if (s + s_next in _this.operatorjson) {
                     if (str.length > 0) {
-                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + s + s_next;
+                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, sheetContext) + s + s_next;
                         str = "";
                     } else {
                         function_str += s + s_next;
@@ -2340,7 +2349,7 @@ const luckysheetformula = {
                     str += s;
                 } else {
                     if (str.length > 0) {
-                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step) + s;
+                        function_str += _this.functionStrChange(str, type, rc, orient, stindex, step, sheetContext) + s;
                         str = "";
                     } else {
                         function_str += s;
@@ -2351,8 +2360,12 @@ const luckysheetformula = {
             }
 
             if (i == funcstack.length - 1) {
-                if (!str.includes("!") && _this.iscelldata($.trim(str))) {
-                    function_str += _this.functionStrChange_range($.trim(str), type, rc, orient, stindex, step);
+                // Without a sheet context, retain the cell-shift operation's existing behaviour.
+                const reference = $.trim(str);
+                const separator = reference.lastIndexOf("!");
+                const address = separator < 0 ? reference : reference.substring(separator + 1);
+                if ((sheetContext || separator < 0) && _this.iscelldata(address)) {
+                    function_str += _this.functionStrChange_range(reference, type, rc, orient, stindex, step, sheetContext);
                 } else {
                     function_str += $.trim(str);
                 }
@@ -2363,18 +2376,26 @@ const luckysheetformula = {
 
         return function_str;
     },
-    functionStrChange_range: function(txt, type, rc, orient, stindex, step) {
+    functionStrChange_range: function(txt, type, rc, orient, stindex, step, sheetContext) {
         let _this = this;
 
-        let val = txt.split("!"),
-            rangetxt,
-            prefix = "";
+        const separator = txt.lastIndexOf("!");
+        let rangetxt = txt.substring(separator + 1);
+        let prefix = separator < 0 ? "" : txt.substring(0, separator + 1);
 
-        if (val.length > 1) {
-            rangetxt = val[1];
-            prefix = val[0] + "!";
-        } else {
-            rangetxt = val[0];
+        if (sheetContext) {
+            let referenceIndex = sheetContext.formulaSheetIndex;
+            if (separator >= 0) {
+                let sheetName = txt.substring(0, separator);
+                if (sheetName[0] == "'" && sheetName[sheetName.length - 1] == "'") {
+                    sheetName = sheetName.substring(1, sheetName.length - 1).replace(/''/g, "'");
+                }
+                const sheet = Store.luckysheetfile.find(file => file.name.toLowerCase() == sheetName.toLowerCase());
+                // Unknown/external sheets must not be shifted as local references.
+                if (!sheet) return txt;
+                referenceIndex = sheet.index;
+            }
+            if (String(referenceIndex) != String(sheetContext.targetSheetIndex)) return txt;
         }
 
         let r1, r2, c1, c2;

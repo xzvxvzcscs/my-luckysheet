@@ -11,6 +11,7 @@ import { checkProtectionAuthorityNormal, checkProtectionNotEnable } from "../con
 import { getSheetIndex } from "../methods/get";
 import Store from "../store";
 import method from "./method";
+import { collectStructuralFormulaChanges, applyStructuralFormulaChanges, recalculateStructuralFormulas } from "./structuralFormula";
 
 /**
  * 增加行列
@@ -121,7 +122,7 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
                 if(!calc_funcStr) continue
 
             if (type == "row") {
-                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "row", direction, index, value);
+                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "row", direction, index, value, { formulaSheetIndex: file.index, targetSheetIndex: file.index });
 
                 if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                     d[calc_r][calc_c].f = functionStr;
@@ -139,7 +140,7 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
 
                 newCalcChain.push(calc);
             } else if (type == "column") {
-                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "col", direction, index, value);
+                let functionStr = "=" + formula.functionStrChange(calc_funcStr, "add", "col", direction, index, value, { formulaSheetIndex: file.index, targetSheetIndex: file.index });
 
                 if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                     d[calc_r][calc_c].f = functionStr;
@@ -855,6 +856,7 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
         }
     }
 
+    const formulaChanges = collectStructuralFormulaChanges(file.index, "add", type == "row" ? "row" : "col", direction, index, value);
     // 修改当前sheet页时刷新
     if (file.index == Store.currentSheetIndex) {
         jfrefreshgrid_adRC(
@@ -869,17 +871,20 @@ function luckysheetextendtable(type, index, value, direction, sheetIndex) {
             newFreezen,
             newDataVerification,
             newHyperlink,
+            formulaChanges,
         );
     } else {
         file.data = d;
         file.config = cfg;
         file.calcChain = newCalcChain;
-        file.filter = newFilterObj.filter;
-        file.filter_select = newFilterObj.filter_select;
+        file.filter = newFilterObj && newFilterObj.filter;
+        file.filter_select = newFilterObj && newFilterObj.filter_select;
         file.luckysheet_conditionformat_save = newCFarr;
         file.luckysheet_alternateformat_save = newAFarr;
         file.dataVerification = newDataVerification;
         file.hyperlink = newHyperlink;
+        applyStructuralFormulaChanges(formulaChanges);
+        recalculateStructuralFormulas();
     }
 
     let range = null;
@@ -965,7 +970,7 @@ function luckysheetextendData(rowlen, newData) {
 
 //删除行列
 function luckysheetdeletetable(type, st, ed, sheetIndex) {
-    sheetIndex = sheetIndex || Store.currentSheetIndex;
+    sheetIndex = sheetIndex ?? Store.currentSheetIndex;
 
     if (type == "row" && !checkProtectionAuthorityNormal(sheetIndex, "deleteRows")) {
         return;
@@ -1077,7 +1082,7 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
 
             if (type == "row") {
                 if (calc_r < st || calc_r > ed) {
-                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "row", null, st, slen);
+                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "row", null, st, slen, { formulaSheetIndex: file.index, targetSheetIndex: file.index });
 
                     if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                         d[calc_r][calc_c].f = functionStr;
@@ -1091,7 +1096,7 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
                 }
             } else if (type == "column") {
                 if (calc_c < st || calc_c > ed) {
-                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "col", null, st, slen);
+                    let functionStr = "=" + formula.functionStrChange(calc_funcStr, "del", "col", null, st, slen, { formulaSheetIndex: file.index, targetSheetIndex: file.index });
 
                     if (d[calc_r][calc_c] && d[calc_r][calc_c].f == calc_funcStr) {
                         d[calc_r][calc_c].f = functionStr;
@@ -1705,6 +1710,7 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
        }
     }
 
+    const formulaChanges = collectStructuralFormulaChanges(file.index, "del", type == "row" ? "row" : "col", null, st, slen);
     // 修改当前sheet页时刷新
     if (file.index == Store.currentSheetIndex) {
         jfrefreshgrid_adRC(
@@ -1719,17 +1725,20 @@ function luckysheetdeletetable(type, st, ed, sheetIndex) {
             newFreezen,
             newDataVerification,
             newHyperlink,
+            formulaChanges,
         );
     } else {
         file.data = d;
         file.config = cfg;
         file.calcChain = newCalcChain;
-        file.filter = newFilterObj.filter;
-        file.filter_select = newFilterObj.filter_select;
+        file.filter = newFilterObj && newFilterObj.filter;
+        file.filter_select = newFilterObj && newFilterObj.filter_select;
         file.luckysheet_conditionformat_save = newCFarr;
         file.luckysheet_alternateformat_save = newAFarr;
         file.dataVerification = newDataVerification;
         file.hyperlink = newHyperlink;
+        applyStructuralFormulaChanges(formulaChanges);
+        recalculateStructuralFormulas();
     }
 }
 

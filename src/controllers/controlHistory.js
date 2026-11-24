@@ -176,7 +176,9 @@ const controlHistory = {
                 ctr.af, 
                 ctr.freezen,
                 ctr.dataVerification,
-                ctr.hyperlink
+                ctr.hyperlink,
+                ctr.formulaChanges,
+                true
             );
         }
         else if (ctr.type == "delRC") { //删除行列撤销操作
@@ -195,7 +197,9 @@ const controlHistory = {
                 ctr.af, 
                 ctr.freezen,
                 ctr.dataVerification,
-                ctr.hyperlink
+                ctr.hyperlink,
+                ctr.formulaChanges,
+                true
             );
         }
         else if (ctr.type == "deleteCell") { //删除单元格撤销操作
@@ -525,7 +529,8 @@ const controlHistory = {
                 ctr.curAf, 
                 ctr.curFreezen,
                 ctr.curDataVerification,
-                ctr.curHyperlink
+                ctr.curHyperlink,
+                ctr.formulaChanges
             );
         }
         else if (ctr.type == "delRC") { //删除行列重做操作
@@ -540,7 +545,8 @@ const controlHistory = {
                 ctr.curAf, 
                 ctr.curFreezen,
                 ctr.curDataVerification,
-                ctr.curHyperlink
+                ctr.curHyperlink,
+                ctr.formulaChanges
             );
         }
         else if (ctr.type == "deleteCell") { //删除单元格重做操作

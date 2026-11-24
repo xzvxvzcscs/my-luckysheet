@@ -226,7 +226,8 @@ async function core() {
         banner: { js: banner },
         target: ['es2015'],
         sourcemap: true,
-        // outfile: 'dist/luckysheet.umd.js',
+        // Keep the filename in sync with src/index.html and package.json.
+        // outfile: 'dist/luckysheet.umd.js', // 當本地構建訪問luckysheet本地地址時，需要把下面兩行注釋，把這一行放開
         outdir: 'dist',
         entryNames: 'luckysheet-[hash].umd',
         metafile: true,

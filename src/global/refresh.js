@@ -19,6 +19,7 @@ import { selectHightlightShow, selectionCopyShow, collaborativeEditBox } from '.
 import { createFilterOptions } from '../controllers/filter';
 import { getSheetIndex } from '../methods/get';
 import Store from '../store';
+import { applyStructuralFormulaChanges, recalculateStructuralFormulas } from './structuralFormula';
 
 let refreshCanvasTimeOut = null;
 
@@ -395,7 +396,7 @@ function jfrefreshrange(data, range, cdformat) {
 }
 
 //删除、增加行列 刷新表格
-function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf, af, freezen, dataVerification, hyperlink){
+function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf, af, freezen, dataVerification, hyperlink, formulaChanges = [], undoFormulaChanges = false){
     let file = Store.luckysheetfile[getSheetIndex(Store.currentSheetIndex)];
     collaborativeEditBox();
     //merge改变对应的单元格值改变
@@ -456,6 +457,7 @@ function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf,
             "mcData": mcData,
             "calc": $.extend(true, [], file.calcChain),
             "curCalc": calc,
+            "formulaChanges": formulaChanges,
             "funcData": funcData,
             "filterObj": { "filter_select": $.extend(true, {}, file.filter_select), "filter": $.extend(true, {}, file.filter) },
             "curFilterObj": filterObj,
@@ -548,28 +550,11 @@ function jfrefreshgrid_adRC(data, cfg, ctrlType, ctrlValue, calc, filterObj, cf,
         server.saveParam("v", Store.currentSheetIndex, Store.flowdata[mcData_r][mcData_c], { "r": mcData_r, "c": mcData_c });
     }
 
-    //公式链中公式范围改变对应单元格值的改变
-    if(calc.length > 0){
-        // 取消execFunctionGroupData，改用execFunctionGlobalData
-        // formula.execFunctionGroupData = data;
-
-        for(let i = 0; i < calc.length; i++){
-            let clc = calc[i];
-            let clc_r = clc.r, clc_c = clc.c, clc_i = clc.index, clc_funcStr =  getcellFormula(clc_r, clc_c, clc_i, data);
-            
-            let clc_result = formula.execfunction(clc_funcStr, clc_r, clc_c, clc_i,null, true);
-            clc.func = clc_result;
-
-            if(data[clc_r][clc_c].f == clc_funcStr){
-                setcellvalue(clc_r, clc_c, data, clc_result[1]);
-                // funcData存储当前结果没有用处，每次还是需要从calc公式链实时从当前数据中计算比较靠谱
-                // funcData.push({ "r": clc_r, "c": clc_c });
-            }
-        }
-    }
-
-    //calc函数链
+    // Commit all reference text and the moved calculation chain before evaluating
+    // dependencies. Other sheets may depend on this sheet and on each other.
+    applyStructuralFormulaChanges(formulaChanges, undoFormulaChanges);
     file.calcChain = calc;
+    recalculateStructuralFormulas();
     server.saveParam("all", Store.currentSheetIndex, calc, { "k": "calcChain" });
     for(let i = 0; i < funcData.length; i++){
         let funcData_r = funcData[i].r,
