@@ -275,6 +275,11 @@ export function getOrigincell(r, c, i) {
 }
 
 export function getRealCellValue(r, c){
+    // The display override must not change access to the actual m/v fields.
+    const cell = Store.flowdata[r] && Store.flowdata[r][c];
+    if (cell && Object.prototype.hasOwnProperty.call(cell, "maskDisplay")) {
+        return cell.maskDisplay;
+    }
     let value = getcellvalue(r, c, null, "m");
     if(value == null){
         value = getcellvalue(r, c);

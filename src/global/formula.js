@@ -363,7 +363,11 @@ const luckysheetformula = {
             /**
              * fix #1010
              */
-            if (isInlineStringCell(cell)) {
+            if (Object.prototype.hasOwnProperty.call(cell, "maskDisplay")) {
+                value = cell.maskDisplay;
+            } else if (cell.m === "****") {
+                value = "****";
+            } else if (isInlineStringCell(cell)) {
                 value = getInlineStringNoStyle(r, c);
                 if (typeof value === "string") {
                     value = value.replace(/\</g, "&lt;").replace(/\>/g, "&gt;");
@@ -1339,6 +1343,16 @@ const luckysheetformula = {
             return;
         }
 
+        const maskedCell = Store.flowdata[r] && Store.flowdata[r][c];
+        // Leaving the mask in the editor must preserve the underlying cell value.
+        const maskText = maskedCell && Object.prototype.hasOwnProperty.call(maskedCell, "maskDisplay")
+            ? maskedCell.maskDisplay : maskedCell && maskedCell.m === "****" ? "****" : undefined;
+        if (maskText !== undefined && inputText === String(maskText)
+            && (value === undefined || value === maskText) && dropdownText === undefined) {
+            _this.cancelNormalSelected();
+            return;
+        }
+
         let dropdownRule = editRule;
         dropdownRule = dropdownRule && dropdownRule.type === "dropdown" && luckysheetConfigsetting.hook && typeof luckysheetConfigsetting.hook.dropdownValueMatch === "function" ? dropdownRule : null;
         //数据验证 输入数据无效时禁止输入
@@ -1430,11 +1444,11 @@ const luckysheetformula = {
         const sameFormula = getObjType(value) == "string" && getObjType(curv) == "object" && value === curv.f;
         if (!isCurInline) {
             if (isRealNull(value) && !isPrevInline) {
-                if (curv == null || (isRealNull(curv.v) && curv.spl == null && curv.f == null)) {
+                if (curv == null || (!Object.prototype.hasOwnProperty.call(curv, "maskDisplay") && isRealNull(curv.v) && curv.spl == null && curv.f == null)) {
                     _this.cancelNormalSelected();
                     return;
                 }
-            } else if (curv != null && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
+            } else if (curv != null && !Object.prototype.hasOwnProperty.call(curv, "maskDisplay") && curv.m !== "****" && curv.qp != 1 && !dropdownRule && !(getObjType(value) == "string" && value.slice(0, 1) == "=")) {
                 const isText = curv.ct != null && (curv.ct.fa === "@" || curv.ct.t === "s");
                 // 文本格式必须严格比较，避免新增的前导零与旧数值被判为相同内容。
                 const sameContent = isText
@@ -1686,7 +1700,14 @@ const luckysheetformula = {
             return;
         }
         // 普通输入与下拉输入都在校验通过后修改待提交副本，避免编辑标记单独生成撤销记录。
-        method.createHookFunction("cellUpdateAccepted", r, c, value, isRefresh, d[r][c]);
+        method.createHookFunction(
+            "cellUpdateAccepted", r, c, value, isRefresh, d[r][c],
+            oldValue === undefined ? undefined : JSON.parse(oldValue)
+        );
+        // Clear the display mask only after an edited value has been accepted.
+        if (d[r][c] && inputText !== "****") {
+            delete d[r][c].maskDisplay;
+        }
         if (dropdownRule) {
             const pendingCell = d[r][c];
             // 关联查找使用本轮格式化单元格，不能把显示值重新还原成无格式的原始数值。

@@ -1417,6 +1417,9 @@ let cellRender = function(
     isMerge,
 ) {
     let cell = Store.flowdata[r][c];
+    if (cell && Object.prototype.hasOwnProperty.call(cell, "maskDisplay")) {
+        value = cell.maskDisplay;
+    }
     let cellWidth = end_c - start_c - 2;
     let cellHeight = end_r - start_r - 2;
     let space_width = 2,

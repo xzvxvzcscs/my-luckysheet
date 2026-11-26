@@ -168,7 +168,11 @@ export function luckysheetupdateCell(row_index1, col_index1, d, cover, isnotfocu
 
         
         if (!cover) {
-            if(isInlineStringCell(cell)){
+            if (Object.prototype.hasOwnProperty.call(cell, "maskDisplay")) {
+                value = cell.maskDisplay;
+            } else if (cell.m === "****") {
+                value = "****";
+            } else if(isInlineStringCell(cell)){
                 value = getInlineStringStyle(row_index, col_index, d);
             }
             else if(cell.f!=null){

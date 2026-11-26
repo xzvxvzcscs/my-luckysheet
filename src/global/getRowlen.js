@@ -364,6 +364,7 @@ function isSupportBoundingBox(ctx){
 // let measureTextCache = {}, measureTextCacheTimeOut = null;
 // option {cellWidth,cellHeight,space_width,space_height}
 function getCellTextInfo(cell , ctx, option){
+    const hasMaskDisplay = cell != null && Object.prototype.hasOwnProperty.call(cell, "maskDisplay");
     let cellWidth = option.cellWidth;
     let cellHeight = option.cellHeight;
     let isMode = "", isModeSplit = "";
@@ -438,7 +439,7 @@ function getCellTextInfo(cell , ctx, option){
     textContent.values = [];
 
     let fontset, cancelLine="0", underLine="0", fontSize=11, isInline=false, value, inlineStringArr=[];
-    if(isInlineStringCell(cell)){
+    if(!hasMaskDisplay && isInlineStringCell(cell)){
         let sharedStrings = cell.ct.s, similarIndex = 0;
         for(let i=0;i<sharedStrings.length;i++){
             let shareCell = getCellFont(cell, sharedStrings[i]);
@@ -504,7 +505,10 @@ function getCellTextInfo(cell , ctx, option){
         underLine = checkstatusByCell(cell ,"un");//underLine
         fontSize = checkstatusByCell(cell ,"fs");
 
-        if(cell instanceof Object){
+        if (hasMaskDisplay) {
+            value = cell.maskDisplay;
+        }
+        else if(cell instanceof Object){
             value = cell.m;
             if(value == null){
                 value = cell.v;
